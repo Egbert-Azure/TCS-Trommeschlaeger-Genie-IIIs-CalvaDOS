@@ -124,7 +124,7 @@ Please:
 
 ### Original software
 
-- Arnulf Sopp — CalvaDOS and the 1986 OMTI boot EPROM
+- Arnulf Sopp (The Hacktory) — CalvaDOS and the 1986 OMTI boot EPROM
 - Andreas Magnus (HACKNUS-SOFTWARE)
 - Volker Dose
 - Helmut Bernhardt
