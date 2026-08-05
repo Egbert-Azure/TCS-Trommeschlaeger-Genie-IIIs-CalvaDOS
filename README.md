@@ -1,6 +1,6 @@
 # CalvaDOS
 
-CalvaDOS is lost.
+CalvaDOS is lost. First things first and Prost!
 
 The original was a hard-disk version of **G-DOS 2.4** for the **TCS Genie
 IIIs**, written in the mid-1980s and, as far as the surviving evidence
