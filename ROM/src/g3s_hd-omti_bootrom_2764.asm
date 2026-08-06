@@ -36,10 +36,19 @@
 
 0000  F3          coldstart    DI
 0001  31 00 3C             LD	SP,3c00h
-; waitf9idle -- poll port F9h (the Genie III banker/mode-select port,
-; same port used for F0xx bank switching; see gdos-omti.asm's dbank)
-; until it reads back 20h. Then arms the bank/mode registers D6h/D7h:
-; 0Fh to both, then 0 to both.
+; waitf9idle -- ports D6h and D7h are the Z80 PIO's channels A
+; and B, NOT bank or mode registers. The sequence writes 0Fh to both,
+; then 00h to both. If D6h/D7h are the PIO's control ports, this is a
+; standard PIO initialisation -- 0Fh is the mode word for mode 0
+; (output): bits 7-6 = 00, bits 3-0 = 1111 identifier; the 00h that
+; follows is an interrupt-vector write, bit 0 clear selecting the
+; vector interpretation. If they are the data ports instead, both
+; writes are ordinary data. Which the Genie IIIs maps at D6h/D7h is
+; not established here.
+;
+; What this sequence does NOT do is configure banking. That is F9h
+; above and FAh at 001Fh.
+; ----------------------------------------------------------------
 0004  3E 20       waitf9idle    LD	A,20h
 0006  D3 F9                OUT	(0f9h),A
 0008  DB F9                IN	A,(0f9h)
