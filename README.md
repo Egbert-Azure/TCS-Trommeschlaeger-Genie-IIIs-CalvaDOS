@@ -45,6 +45,17 @@ new evidence kills an earlier conclusion, the conclusion is struck and left
 visible rather than deleted. The wrong turns are part of the record, and
 several of them were more useful than the right answers.
 
+## What the OMTI port has to change
+
+| Layer | Xebec, as above | OMTI |
+| --- | --- | --- |
+| Select | write ID `01` to port `00`, read back, pulse SEL on port `02`, poll BUSY (bit 1) on port `01` | strobe port `42h`, poll phase codes `C0/C9/CB/CF` on `41h` |
+| REQ | bit 0 of port `01` (`F255`) | bit 0 of `41h` — same idiom, different port |
+| Release | write port `01` (`F0F6`) | not required the same way |
+| CDB bytes | `OUT (0),A` per byte (`F215` loop) | `OUT (40h),A` |
+| Address | flat LBA in `CDB1..3` (`F1ED`) | raw cylinder / head / sector |
+| Data phase | bank-switched RAM stub at `3A00h`, `INIR`/`OTIR` patched in | same mechanism required — the banking constraint is independent of the controller |
+
 ## Status
 
 | Component | Status |
