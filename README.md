@@ -45,6 +45,15 @@ new evidence kills an earlier conclusion, the conclusion is struck and left
 visible rather than deleted. The wrong turns are part of the record, and
 several of them were more useful than the right answers.
 
+## The Evolution of CalvaDOS
+
+| stage | what | controller | disk | volumes |
+| --- | --- | --- | --- | --- |
+| a | stock G-DOS 2.4, built-in HD driver | Xebec | 10 MB | 5 and 6 |
+| b | Arnulf Sopp, 1986 — new EPROM, SYS0/SYS onto the HD | OMTI | 10 MB | 5 and 6 |
+| c | A. Magnus and Volker Dose, ~1990 | | ~20 MB Tandon | 5, 6, 7, 8 and 9 |
+| d | E. Schroeer ~2992 | | later use with an ST225 | | 21.4 MB | |
+
 ## What the OMTI port has to change
 
 | Layer | Xebec | OMTI |
