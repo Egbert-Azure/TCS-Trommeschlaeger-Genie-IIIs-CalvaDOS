@@ -144,7 +144,7 @@ Please:
 
 ### Recovery
 
-- Fritz read `VOLKER.DMK` off Volker Dose's original floppy with a Catweasel
+- Fritz Chwolka read `VOLKER.DMK` off Volker Dose's original floppy with a Catweasel
   controller.
 - Jens Günther (JenGun), author of **sdltrs**, passed the recovered disk on.
   Without it there would be nothing to work from.
