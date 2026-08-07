@@ -4,7 +4,7 @@
 
 CalvaDOS is lost. First things first and Prost!
 
-The original was a hard-disk version of **G-DOS 2.4** for the **TCS Genie
+The original was the hard-disk version patch for OMTI controller of **G-DOS 2.4** for the **TCS Genie
 IIIs**, written in the mid-1980s and, as far as the surviving evidence
 shows, largely Arnulf Sopp's work. No copy has turned up. There is no disk
 image hidden somewhere in this repository — I don't have one either.
