@@ -1,4 +1,4 @@
-<img width="5000" height="1563" alt="black-logo" src="https://github.com/user-attachments/assets/12af5c46-99aa-420f-a704-6a905b061939" />
+<img width="400" height="100" alt="black-logo" src="https://github.com/user-attachments/assets/12af5c46-99aa-420f-a704-6a905b061939" />
 
 # CalvaDOS
 
@@ -48,6 +48,13 @@ visible rather than deleted. The wrong turns are part of the record, and
 several of them were more useful than the right answers.
 
 ## The Evolution of CalvaDOS
+The patched GDOS 2.4 OS reconstructed in this project did not emerge as a single piece of software. 
+It evolved over roughly a decade through successive hardware and software modifications, each building on the previous generation rather than replacing it. 
+Those layers remain visible in the surviving binaries, source code and documentation, making it possible to reconstruct both the system and its history.
+
+The chronology presented here is derived from the artifacts themselves wherever possible. 
+Dates, signatures and implementation details come from binaries, source code and contemporary documentation rather than recollection. 
+Where a date could not be established from an artifact, the table below leaves it blank rather than guessing or asking someones memories (which might be wrong either).
 
 | stage | what | controller | disk | volumes |
 | --- | --- | --- | --- | --- |
