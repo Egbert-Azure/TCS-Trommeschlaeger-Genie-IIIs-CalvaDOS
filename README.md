@@ -81,7 +81,7 @@ Where a date could not be established from an artifact, the table below leaves i
 | Stock Xebec driver | Reverse engineered |
 | OMTI transport | Working |
 | OMTI G-DOS driver | Read/write and directory access verified |
-| Drive numbering | Stock G-DOS layout retained — floppies 0–3, hard disk 5/6/9 |
+| Drive numbering | Stock G-DOS layout retained — floppies 0–3, hard disk 5/6 (two partitions) |
 | Boot sector at `4200h` | Written and executing, loaded by the Sopp EPROM |
 | Hard-disk boot | Loads G-DOS modules; does not yet reach the command prompt |
 
