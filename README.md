@@ -1,3 +1,5 @@
+<img width="5000" height="1563" alt="black-logo" src="https://github.com/user-attachments/assets/12af5c46-99aa-420f-a704-6a905b061939" />
+
 # CalvaDOS
 
 CalvaDOS is lost. First things first and Prost!
