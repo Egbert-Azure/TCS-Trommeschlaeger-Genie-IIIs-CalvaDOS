@@ -165,7 +165,7 @@ HDV/calvados-sopp-512-verified-20260816.hdv
 
 Divergence begins at 50A8h.
 Full disassembly:
-docs/reference/sys0-sys-disassembly.asm
+src/GDOS-2.4.SYS-files/sys0-sys-disassembly.asm
 
 ## Current target
 Find what should populate 4200h–43FFh.
