@@ -104,7 +104,7 @@ Execution continues through non-code memory.
 - No return
 - No screen change
 - No zbx trap
-- 60+ seconds of silence on real 7.2 MHz hardware
+- 60+ seconds of silence
 
 ## Boot state
 
