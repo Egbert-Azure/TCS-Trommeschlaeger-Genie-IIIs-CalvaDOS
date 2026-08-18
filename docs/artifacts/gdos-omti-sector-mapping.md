@@ -134,7 +134,7 @@ OMTI physical sector
 └──────────────────────────────┘
 ```
 
-But the **read path is cleverer than simply reading 512 bytes and throwing half away**.
+Now the read path continues in a different way
 
 ### Even GDOS sector
 
