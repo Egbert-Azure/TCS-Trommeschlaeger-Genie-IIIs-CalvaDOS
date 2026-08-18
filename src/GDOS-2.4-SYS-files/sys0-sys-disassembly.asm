@@ -1655,8 +1655,63 @@
 4BC3  33        inc sp
 4BC4  fe 20     cp 020h
 4BC6  da 12 43  jp c,04312h
-
+; ******************************************************
+; * Name: GETSYS                                       *
+; * Funktion: SYS-File (A) laden und starten           *
+; * Input: A: Code -für SYS-File (siehe Text)          *
+; * Verändert: HL, DE, BC                              *
+; * Output: AF: A=Fehlercode, wenn Z=0                 *
+; ******************************************************
+; Die SYS-File, die durch Register A angegeben ist, wird geladen (falls
+; sie nicht schon im Speicher steht) und gestartet, wobei alle Register
+; unverändert übergeben werden.
+; Das Format des 8-Bit-Registers A ist xxxbbsss, wobei
+; bbsss-2 die gewünschte SYS-File (SYS1 - SYS29) bestimmt, indem
+; sss+2 angibt, im wievielten Sector des Directory der FPDE dieser
+; SYS-File enthalten ist
+; bb angibt, der wievielte FPDE in diesem Directory-Sector der
+; gesuchte FPDE ist und
+; xxx eine von evtl, mehreren Funktionen auswählt, die diese SYS-File
+; enthält. Bei mehr als 7 möglichen Funktionen wird zusätzlich
+; Register C zur Auswahl bestimmter Funktionen benutzt.
+; Falls die ausgewählte Funktion mit einem RETURN endet, kehrt GETSYS zu
+; seinem Aufrufer zurück (jedoch nicht zum Aufrufer eines RST 28H, sondern
+; 1 Ebene höher) und übergibt alle Register so, wie sie durch die ausgewählte
+; Funktion gesetzt wurden. Es gibt aber auch Funktionen, die nicht
+; mit einem RETURN, sondern mit einem Sprunq nach DOSRDY (402DH), ERRORO
+; (4030H) oder DOSERR (4409H) enden.
+; ******************************************************
+; * Name: GETSYS *
+; * Function: Load and start a SYS file (A) *
+; * Input: A: Code for SYS file (see text) *
+; * Modifies: HL, DE, BC *
+; * Output: AF: A = error code if Z = 0 *
+; ******************************************************
+; The SYS file specified by register A is loaded (if it is not already
+; present in memory) and started, with all registers passed unchanged.
+;
+; The format of the 8‑bit register A is xxxbbsss, where:
+;
+;   bbsss – 2 determines the desired SYS file (SYS1 – SYS29), with
+;   sss + 2 indicating in which directory sector the FPDE of this
+;   SYS file is located,
+;
+;   bb indicating which FPDE within that directory sector is the
+;   one being searched for, and
+;
+;   xxx selecting one of possibly several functions contained in
+;   this SYS file. If more than 7 functions are available, register C
+;   is additionally used to select specific functions.
+;
+; If the selected function ends with a RETURN, GETSYS returns to its
+; caller (but not to the caller of an RST 28H — instead one level higher),
+; passing all registers exactly as they were set by the selected function.
+;
+; However, some functions do not end with RETURN, but instead jump to
+; DOSRDY (402DH), ERRORO (4030H), or DOSERR (4409H).
+; ******************************************************
 ; 4BC9h-4C27h -- GETSYS
+; *****************************************************
 4BC9  e5        push hl
 4BCA  d5        push de
 4BCB  c5        push bc
