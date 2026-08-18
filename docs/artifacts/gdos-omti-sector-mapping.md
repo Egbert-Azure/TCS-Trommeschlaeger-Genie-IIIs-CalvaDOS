@@ -64,18 +64,14 @@ The driver's low-RAM transfer stub is patched so the second half becomes the use
 
 ## What this settles
 
-**Confirmed**
-
-> The 4C1Dh fix does not touch drive mapping. 4C1Dh is inside GDOS's own SYS0 boot code — GETSYS's "call the entry point of the SYS-file I just loaded" step, fired while loading SYS0/SYS1/SYS4 modules during early boot. gpar and gflop / gvol live entirely in gdos-omti.asm and were untouched by that revert.
-
-> Drives 5 and 6 are, and remain, the two OMTI hard-disk volumes ( sysvol EQU 05h , gdos-omti.asm:75 ); drive 9 is a third dispatch slot this 10 MB build leaves unconfigured. That table is byte-identical to the stock Xebec S1410 driver's — this project's own driver reproduces it on purpose ( DRIVER.md : "the parameter table's fixed addresses and contents are both stock").
+> Drives 5 and 6 are the two OMTI hard-disk volumes ( sysvol EQU 05h , gdos-omti.asm:75 ); drive 9 is a third dispatch slot this 10 MB build leaves unconfigured. That table is byte-identical to the stock Xebec S1410 driver's — this project's own driver reproduces it on purpose.
 
 
 **Worth flagging**
 
 > Only drives 0 and 1 pass through to the FDC — drives 2 and 3 are rejected outright by gflop 's own CP 2 / JR NC,grej8 , A=08h "unsupported function", no fallback. This is already documented at abi.md:139-140 and is stock Xebec behavior this driver reproduces byte-for-byte — not something introduced by any fix this session.
-
 > It sits alongside the broader claim in system-drive-model.md:29 ("DOS drives 0-3 remain real floppy slots") — that statement is true of the table's intent and the PDRIVE block's 4-slot layout, but gflop 's own argument check currently only honors units 0/1 of it. Since the target layout calls for four 80-track floppies on 0–3, this is a gap worth resolving before relying on drives 2/3 — separate from, and unrelated to, the 4C1Dh boot-sequencing fix.
+> per stock GDOS 2.4 if no harddrive is attached, the RAMDISK becomes drive 2
 
 
 ## 256-byte GDOS sectors on a 512-byte OMTI disk
