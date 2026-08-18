@@ -70,7 +70,9 @@ The driver's low-RAM transfer stub is patched so the second half becomes the use
 **Worth flagging**
 
 > Only drives 0 and 1 pass through to the FDC — drives 2 and 3 are rejected outright by gflop 's own CP 2 / JR NC,grej8 , A=08h "unsupported function", no fallback. This is already documented at abi.md:139-140 and is stock Xebec behavior this driver reproduces byte-for-byte — not something introduced by any fix this session.
+
 > It sits alongside the broader claim in system-drive-model.md:29 ("DOS drives 0-3 remain real floppy slots") — that statement is true of the table's intent and the PDRIVE block's 4-slot layout, but gflop 's own argument check currently only honors units 0/1 of it. Since the target layout calls for four 80-track floppies on 0–3, this is a gap worth resolving before relying on drives 2/3 — separate from, and unrelated to, the 4C1Dh boot-sequencing fix.
+
 > per stock GDOS 2.4 if no harddrive is attached, the RAMDISK becomes drive 2
 
 
