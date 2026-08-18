@@ -4,7 +4,7 @@
 -->
 # Drive Dispatch Map
 ## Two Sectors, One Burst
-How DRVSEL routes DOS drive numbers 0–9 to the floppy controller, the OMTI hard disk, or an outright rejection — decoded straight from gpar and its jump table, cross-checked against abi.md 's byte-level trace.
+How DRVSEL routes DOS drive numbers 0–9 to the floppy controller, the OMTI hard disk, or an outright rejection — decoded straight from gpar and its jump table, cross-checked against reverse engineered byte-level trace.
 
 ## The Ten Drive Slots
 
