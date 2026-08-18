@@ -1,34 +1,28 @@
+<!-- /docs/artifacts/gdos-omti-sector-mapping.md-->
+<!--
+(c) E. Schroeer 2026
+-->
 # Drive Dispatch Map
-
+## Two Sectors, One Burst
 How DRVSEL routes DOS drive numbers 0–9 to the floppy controller, the OMTI hard disk, or an outright rejection — decoded straight from gpar and its jump table, cross-checked against abi.md 's byte-level trace.
 
-## The ten drive slots
+## The Ten Drive Slots
 
-| Drive | Type | Mapping | Handler | Destination |
-|---:|---|---|---|---|
-
-| 0 | DOS drive | gpar= 10h · arg 0 | → gflop | FDC floppy unit 0 — carry set, DOS's own FDC path handles it |
-
-| 1 | DOS drive | gpar= 11h · arg 1 | → gflop | FDC floppy unit 1 — carry set, DOS's own FDC path handles it |
-
-| 2 | DOS drive | gpar= 12h · arg 2 | → gflop → grej8 | rejected — gflop's own CP 2 / JR NC turns any arg ≥ 2 away, A=08h "unsupported function" |
-
-| 3 | DOS drive | gpar= 13h · arg 3 | → gflop → grej8 | rejected the same way — arg 3 ≥ 2 |
-
-| 4 | DOS drive | gpar= 00h · arg 0 | → grej8 | unassigned in this table — A=08h. Ramdisk (memdisk/cmd) must claim it by a different mechanism, not gpar |
-
-| 5 | DOS drive | gpar= 40h · arg 0 | → gvol | OMTI volume 0 — sysvol , the boot/system partition |
-
-| 6 | DOS drive | gpar= 41h · arg 1 | → gvol | OMTI volume 1 — the second HD partition |
-
-| 7 | DOS drive | gpar= 00h · arg 0 | → grej8 | unassigned — A=08h "unsupported function" |
-
-| 8 | DOS drive | gpar= 7Fh · arg F | → grej20 | rejected earlier, at the slot lookup itself — A=20h "bad drive number", not "unsupported function" |
-
-| 9 | DOS drive | gpar= 42h · arg 2 | → gvol | OMTI volume 2 — dispatch slot exists, no volume configured in this 10 MB build |
+| Drive | Type | Mapping | Handler | Destination / Result |
+|------:|------|---------|---------|----------------------|
+| **0** | DOS drive | `gpar = 10h` · arg `0` | → `gflop` | FDC floppy unit 0 — carry set; DOS's own FDC path handles it |
+| **1** | DOS drive | `gpar = 11h` · arg `1` | → `gflop` | FDC floppy unit 1 — carry set; DOS's own FDC path handles it |
+| **2** | DOS drive | `gpar = 12h` · arg `2` | → `gflop` → `grej8` | **Rejected** — `gflop`'s `CP 2 / JR NC` rejects any arg ≥ 2; `A = 08h` (`unsupported function`) |
+| **3** | DOS drive | `gpar = 13h` · arg `3` | → `gflop` → `grej8` | **Rejected** — same path; arg `3 ≥ 2` |
+| **4** | DOS drive | `gpar = 00h` · arg `0` | → `grej8` | **Unassigned** — `A = 08h` (`unsupported function`). Ramdisk (`memdisk`/`cmd`) must claim it through a different mechanism, not `gpar` |
+| **5** | DOS drive | `gpar = 40h` · arg `0` | → `gvol` | OMTI volume 0 — `sysvol`, the boot/system partition |
+| **6** | DOS drive | `gpar = 41h` · arg `1` | → `gvol` | OMTI volume 1 — the second HD partition |
+| **7** | DOS drive | `gpar = 00h` · arg `0` | → `grej8` | **Unassigned** — `A = 08h` (`unsupported function`) |
+| **8** | DOS drive | `gpar = 7Fh` · arg `F` | → `grej20` | **Rejected earlier** — slot lookup itself fails; `A = 20h` (`bad drive number`), not `unsupported function` |
+| **9** | DOS drive | `gpar = 42h` · arg `2` | → `gvol` | OMTI volume 2 — dispatch slot exists, but no volume is configured in this 10 MB build |
 
 
-## How one byte becomes a jump
+## Two logical sectors share one physical burst
 
 ```text
 
