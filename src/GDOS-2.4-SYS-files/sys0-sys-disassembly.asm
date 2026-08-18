@@ -260,20 +260,41 @@
 436E  00        nop
 436F  00        nop
 4370  5a        ld e,d
-4371  11 23 03  ld de,00323h
-4374  23        inc hl
-4375  0a        ld a,(bc)
-4376  02        ld (bc),a
-4377  00        nop
-4378  00        nop
-4379  11 02 ff  ld de,0ff02h
-437C  01 00 01  ld bc,00100h
-437F  00        nop
-4380  00        nop
-4381  00        nop
-4382  00        nop
-4383  ff        rst 38h
-4384  00        nop
+;
+; PDRIVE Parameter fuer Drive 0
+;
+4371  11 23 03  ld de,00323h    ; wirklicher DSL "Directory Starting Lump" (wird bei
+                                ; Bedarf durch den Wert im BOOT-Sector der betreffenden
+                                ; Diskette aktualisiert)
+                                ; actual DSL "Directory Starting Lump" (updated as
+                                ; needed with the value from the boot sector of the
+                                ; diskette in question)
+4374  23        inc hl          ; PDRIVE+3
+4375  0a        ld a,(bc)       ; PDRIVE+4
+4376  02        ld (bc),a       ; PDRIVE+5
+4377  00        nop             ; PDRIVE+6
+4378  00        nop             ; PDRIVE+7
+4379  11 02 ff  ld de,0ff02h    ; PDRIVE+8 (11h), PDRIVE+9 (02h) -- Drive 0's
+                                ; block ends here. Drive 1 begins mid-instruction,
+                                ; at 437Bh (FFh) -- confirmed byte-for-byte against
+                                ; a reference disassembly: 437Bh-4384h = FF 01 00 01
+                                ; 00 00 00 00 FF 00, an exact match for Drive 1's
+                                ; PDRIVE+0..+9. The disassembler's own line grouping
+                                ; (one 3-byte pseudo-instruction per line, since this
+                                ; is data, not code) straddles the Drive 0/Drive 1
+                                ; boundary; it does not reflect a real instruction.
+;
+; PDRIVE Parameter fuer Drive 1
+; (starts at 437Bh, the third byte of the instruction above)
+;
+                                ; 437B  ff              ; PDRIVE+0
+437C  01 00 01  ld bc,00100h    ; PDRIVE+1
+437F  00        nop             ; PDRIVE+4
+4380  00        nop             ; PDRIVE+5
+4381  00        nop             ; PDRIVE+6
+4382  00        nop             ; PDRIVE+7
+4383  ff        rst 38h         ; PDRIVE+8
+4384  00        nop             ; PDRIVE+9
 4385  ff        rst 38h
 4386  01 00 01  ld bc,00100h
 4389  00        nop
@@ -302,7 +323,6 @@
 43A4  01 00 00  ld bc,00000h
 43A7  0d        dec c
 43A8  0d        dec c
-
 ; 43B2h-43DFh -- shared FCB fields
 43B2  00        nop  ; [note] dfcbdv2 (43D4h) and dfcbdec (43D5h) fall in this range.
 43B3  00        nop
@@ -983,6 +1003,70 @@
 4809  cd 80 49  call sub_4980h
 480C  cd b7 49  call sub_49b7h
 480F  af        xor a
+; ******************************************************
+;  Name: FILPOS
+; 
+;  Funktion: Berechnet die physikalische Position des#
+;  Sectors, auf den das NEXT-Feld zeigt #
+;  Input: IX: zeigt auf geöffneten FCB #
+;  IY: muß auf 4380H zeigen #
+; 
+;  A: 00: File darf erweitert werden
+;  B6 : File darf nicht erweitert werden*
+;  vorher: Call PUSHR (4980H)! #
+;  Verändert: BC
+; 
+;  Output:
+;  AF: A=Fehlercode, wenn Z=0
+;  DE: gesuchte Sector# (Disk-relativ)
+;  HL: zeigt auf Buffer der File
+; ******************************************************
+; FILPOS berechnet, wo derjenige Sector einer File, auf den das NEXT-Feld
+; zeigt, letztendlich auf Diskette steht. Falls die File kürzer ist, als das
+; NEXT-Feld angibt, wird sie dabei - sofern das erlaubt ist - um entsprechend viele GRANS erweitert.
+; Vor dem Aufruf von FILPOS muß UP PUSHR (4980H) aufgerufen worden sein,
+; damit im Falle eines Errors der Notaussprung über 49CDH funktioniert!
+; Arbeitsweise von FILPOS: Es werden zunächst die 4 Datenblocks überprüft,
+; deren Angaben im FCB+0E bis FCB+15H stehen, ob sie den gesuchten Sector
+; enthalten. Wenn nein, werden nun die 4 Erweiterungs-Datenblocks überprüft,
+; deren Angaben zur Zeit im FCB+16H bis FCB+1F enthalten sind. Falls auch
+; sie den gesuchten Sector nicht enthalten, werden aus dem Directory nacheinander alle FDE’s dieser File gelesen und überprüft, bis die Informationen über den gesuchten Sector gefunden sind oder das Ende der File
+; erreicht wurde. In letztem Fall wird - sofern die File erweitert werden
+; darf - nun SYS2/SYS damit beauftragt, freie GRANS zu suchen und für diese
+; File zu belegen.
+; ******************************************************
+; Name: FILPOS
+;
+; Function: Calculates the physical position of the
+; sector pointed to by the NEXT field
+; Input: IX: points to an open FCB
+; IY: must point to 4380H
+;
+; A: 00: File may be extended
+; B6: File may not be extended
+; Prerequisite: Call PUSHR (4980H)!
+; Modified: BC
+;
+; Output:
+; AF: A=error code if Z=0
+; DE: target sector # (disk-relative)
+; HL: points to file buffer
+; ******************************************************
+; FILPOS calculates the actual location on the diskette of the file sector
+; pointed to by the NEXT field. If the file is shorter than the NEXT field
+; indicates, the file is extended by the necessary number of GRANS—
+; provided this is permitted.
+; Before calling FILPOS, PUSHR (4980H) must be called so that, in the event
+; of an error, the emergency exit via 49CDH functions correctly!
+; FILPOS operation: First, the 4 data blocks defined in FCB+0E through
+; FCB+15H are checked to see if they contain the target sector. If not,
+; the 4 extension data blocks defined in FCB+16H through FCB+1F are checked.
+; If these also do not contain the target sector, all FDEs for this file
+; are read from the directory and checked sequentially until information
+; regarding the target sector is found or the end of the file is reached.
+; In the latter case—provided file extension is permitted—SYS2/SYS is
+; tasked with finding free GRANS and allocating them to this file.
+; ******************************************************
 4810  32 bb 48  ld (048bbh),a
 4813  cd 6e 47  call sub_476eh
 4816  20 5a     jr nz,l4872h
@@ -1385,7 +1469,46 @@
 4AC6  c8        ret z
 4AC7  10 f4     djnz l4abdh
 4AC9  c9        ret
-4ACA  cd 3c 46  call sub_463ch
+; ******************************************************
+; Name: WRITDV                                         *
+;  Funktion: schreibt einen Sector des Directory auf   *
+;  Diskette, anschließend Verify (optional)            *
+;  Input: DE: gewünschte Sector# (Disk-relativ)        *
+;  HL: Zeiger auf zu benutzenden Buffer                *
+;  C: Verify nur durchführen, wenn C O 00              *
+;  B: max. Anzahl Verify-Versuche                      *
+;  (4308H): gewünschte Drive# (0-3)                    *
+;  Verändert: B                                        *
+;  Output: AF: A=Fehlercode, wenn Z-0                  *
+********************************************************
+; WRITDV schreibt einen physikalischen Sector mit dem Data Adress Mark für
+; Directory-Sectoren auf Diskette. DE gibt an, um den wievielten Sector
+; innerhalb der Diskette (beginnend ab 0) es sich dabei handelt. Zuvor muß
+; bei 4308H die gewünschte Drive# eingetragen worden sein, z. B. durch
+; DRVSEL (445BH) oder TSTDSK (445EH).
+; Wenn Register C <> 00 ist, wird der Sector nach dem Schreiben getestet, ob
+; er auch ohne Fehler lesbar ist. Wenn nein, wird das Schreiben und anschl.
+; Testen so oft wiederholt, wie Register B angibt.
+; ******************************************************
+; Name: WRITDV                                         *
+; Function: Writes a directory sector to diskette,    *
+; followed by verification (optional)       *
+; Input: DE: Desired sector number (disk-relative)    *
+; HL: Pointer to buffer to be used                    *
+; C: Perform verification only if C <> 00             *
+; B: Max. number of verification attempts             *
+; (4308H): Desired drive number (0-3)                 *
+; Modified: B                                         *
+; Output: AF: A = error code if Z=0                   *
+********************************************************
+; WRITDV writes a physical sector to diskette using the Data Address Mark
+; for directory sectors. DE specifies the sector number within the diskette
+; (starting at 0). The desired drive number must first be set at 4308H,
+; e.g., via DRVSEL (445BH) or TSTDSK (445EH).
+; If register C <> 00, the sector is tested after writing to ensure it can
+; be read without errors. If not, the write and subsequent test operations
+; are repeated the number of times specified in register B.
+4ACA  cd 3c 46  call sub_463ch  ; Sector schreiben
 4ACD  c0        ret nz
 4ACE  79        ld a,c
 4ACF  b7        or a
@@ -1546,7 +1669,7 @@
 4BD8  e6 1f     and 01fh
 4BDA  21 17 43  ld hl,04317h
 4BDD  be        cp (hl)
-4BDE  28 38     jr z,l4c18h  ; wenn die benoetigte SYS-File bereits im Speicher steht
+4BDE  28 38     jr z,l4c18h  ; wenn der benoetigte SYS-File bereits im Speicher steht
 4BE0  77        ld (hl),a
 4BE1  e6 07     and 007h
 4BE3  4f        ld c,a
