@@ -1722,9 +1722,14 @@
 4BD5  36 00     ld (hl),000h
 4BD7  fb        ei
 4BD8  e6 1f     and 01fh
-4BDA  21 17 43  ld hl,04317h
-4BDD  be        cp (hl)
+4BDA  21 17 43  ld hl,04317h ; Load HL with the address 4317h — pointer to the most recently loaded SYS file.
+4BDD  be        cp (hl)      ; Compare A with the byte at (HL) — is the required SYS file already in memory?
 4BDE  28 38     jr z,l4c18h  ; wenn der benoetigte SYS-File bereits im Speicher steht
+; [note] The 28 39/JR Z,4C19 reading once here was wrong -- checked against
+; the raw bytes in DMK/G3S-GDOS24.DMK (tools/dmk.py --extract SYS0/SYS) at
+; this file offset: 43 be 28 38 77 ..., confirming 28 38 / JR Z,4C18h, not
+; 28 39/4C19h. 28 39 does occur for real at 4AE1h a few lines up in this
+; same file -- likely where the wrong reading got copied from.
 4BE0  77        ld (hl),a
 4BE1  e6 07     and 007h
 4BE3  4f        ld c,a
