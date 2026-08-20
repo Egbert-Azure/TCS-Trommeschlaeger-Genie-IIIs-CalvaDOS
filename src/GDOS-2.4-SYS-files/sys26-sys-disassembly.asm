@@ -1,5 +1,16 @@
-; /src/GDOS-2.4-SYS-files/sys26-sys-disassembly.asm
-; SYS26/SYS, stock GDOS 2.4 
+;************************************************************************
+;
+;	SYS26/SYS, stock GDOS 2.4 
+;
+; Disassembled and commented by
+; E.H. Schroeer
+;
+; Name: ssys26-sys-disassembly.asm
+;
+; Date: 2026/08/20
+;
+;************************************************************************
+;
 ; What it does:
 ; the module GETSYS loads for request code 1Ch
 ; (28 decimal; Grosser ch.3, "aktuelles /SYS-Modul": code = SYS-number + 2,
