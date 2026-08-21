@@ -25,10 +25,6 @@
 ; z80dasm 1.2.0
 ; command line: z80dasm -g 0x4d00 -l -a -t -o sys29-sys-disassembly.asm sys29sys_flat.bin
 ;
-; Not annotated -- this is raw, unedited z80dasm output.
-
-; z80dasm 1.2.0
-; command line: z80dasm -g 0x4d00 -l -a -t -o /tmp/sys29sys_disasm.asm /tmp/sys29sys_flat.bin
 
 	org 04d00h
 
