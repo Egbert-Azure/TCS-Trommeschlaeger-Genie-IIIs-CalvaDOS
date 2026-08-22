@@ -8,7 +8,7 @@ CalvaDOS is lost. First things first and Prost!
 
 In the early 1980s, the **TCS Genie IIIs** was an exceptional Z80 computer. It was fast for its time, had banked memory and graphics capabilities, and—unusually for a Z80 machine—could be equipped with a hard disk.
 
-Its operating system, **G-DOS 2.4**, was an impressive piece of software in its own right. Unfortunately, the Genie IIIs arrived late to the market. By then the IBM PC and its clones were taking over, and TCS went bankrupt in 1985.
+Its operating system, **GDOS 2.4**, was an impressive piece of software in its own right. Unfortunately, the Genie IIIs arrived late to the market. By then the IBM PC and its clones were taking over, and TCS went bankrupt in 1985.
 
 But the machine had a small and enthusiastic community around it. Members of the German **Club80** modified G-DOS and pushed the Genie IIIs well beyond what it had originally been designed to do.
 
