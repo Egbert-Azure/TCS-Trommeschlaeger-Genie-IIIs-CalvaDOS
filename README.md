@@ -4,97 +4,93 @@
 
 CalvaDOS is lost. First things first and Prost!
 
-The original was the hard-disk version patch for OMTI controller of **G-DOS 2.4** for the **TCS Genie
-IIIs**, written in the mid-1980s and, as far as the surviving evidence
-shows, largely Arnulf Sopp's work. No copy has turned up. There is no disk
-image hidden somewhere in this repository — I don't have one either.
+## A little history
 
-This is my attempt to rebuild what it did.
+In the early 1980s, the **TCS Genie IIIs** was an exceptional Z80 computer. It was fast for its time, had banked memory and graphics capabilities, and—unusually for a Z80 machine—could be equipped with a hard disk.
 
-## Why bother
+Its operating system, **G-DOS 2.4**, was an impressive piece of software in its own right. Unfortunately, the Genie IIIs arrived late to the market. By then the IBM PC and its clones were taking over, and TCS went bankrupt in 1985.
 
-The Genie IIIs was a banked Z80 machine with a hard disk at a time when that
-combination was still unusual, and the people writing for it were pushing it
-well past what it was sold to do. CalvaDOS is a good example: hard-disk
-partitions used as named directories on a DOS that has no directories, five
-volumes on a driver built for two, a command set larger than the system was
-designed to hold.
+But the machine had a small and enthusiastic community around it. Members of the German **Club80** modified G-DOS and pushed the Genie IIIs well beyond what it had originally been designed to do.
 
-None of it saved the machine. The PC had already taken the market, and the
-Genie IIIs arrived too late to matter commercially. What was being built on it
-was ahead of its time and beside the point at the same time.
+One of those modifications became **CalvaDOS**.
 
-So the interesting part here isn't only how a Z80 operating system works. It's
-what a handful of people got out of one, with the tools of the day and no way
-to ask anybody. That part seems worth writing down.
+As far as I can tell from what has survived, much of the work was done by **Arnulf Sopp**. He added support for an OMTI hard-disk controller and created the EPROM that allowed G-DOS to boot from the hard disk. And, with the particular sense of humor for which Arnulf was known, he called the result *CalvaDOS*.
 
-## What survived
+I always liked what that system could do.
 
-- Arnulf Sopp's 1986 OMTI boot EPROM
-- Volker Dose's 1992 work disk, including assembly sources
-- the original G-DOS 2.4 distribution
-- Hartmut Grosser's *Das DOS-Buch*
-- a lot of reverse engineering
+## Forty years later
 
-The project has two goals:
+Fast-forward to 2026.
 
-- Document how the Genie IIIs hard-disk system actually worked.
-- Build a working, open implementation of an OMTI-based G-DOS.
+The original CalvaDOS software appears to be gone. No complete copy has turned up, and there is no magic disk image waiting to be discovered in this repository.
 
-Some of what's here is understood, some is rebuilt from period code, and some
-is an educated guess that hasn't been proven. Which is which is marked. When
-new evidence kills an earlier conclusion, the conclusion is struck and left
-visible rather than deleted. The wrong turns are part of the record, and
-several of them were more useful than the right answers.
+What did survive, however, was enough to make the story interesting:
 
-## The Evolution of CalvaDOS
-The patched GDOS 2.4 OS reconstructed in this project did not emerge as a single piece of software. 
-It evolved over roughly a decade through successive hardware and software modifications, each building on the previous generation rather than replacing it. 
-Those layers remain visible in the surviving binaries, source code and documentation, making it possible to reconstruct both the system and its history.
+* Arnulf Sopp's 1986 OMTI boot EPROM
+* Volker Dose's work disk, including assembly sources
+* the original G-DOS 2.4 distribution
+* Hartmut Grosser's *Das DOS-Buch*
+* binaries, documentation and other fragments from the Genie IIIs community
+* and, eventually, quite a lot of reverse engineering
 
-The chronology presented here is derived from the artifacts themselves wherever possible. 
-Dates, signatures and implementation details come from binaries, source code and contemporary documentation rather than recollection. 
-Where a date could not be established from an artifact, the table below leaves it blank rather than guessing or asking someones memories (which might be wrong either).
+Looking at the surviving material, I realized that the history of CalvaDOS was still visible in the software itself.
 
-| stage | what | controller | disk | volumes |
-| --- | --- | --- | --- | --- |
-| a | stock G-DOS 2.4, built-in HD driver | Xebec | 10 MB | 5 and 6 |
-| b | Arnulf Sopp, 1986 — new EPROM, SYS0/SYS onto the HD | OMTI | 10 MB | 5 and 6 |
-| c | A. Magnus and Volker Dose, ~1990 | | ~20 MB Tandon | 5, 6, 7, 8 and 9 |
-| d | E. Schroeer ~1992 | | later use with an ST225 | | 21.4 MB | |
+It had not been created once and forgotten. It had **evolved**.
 
-## What the OMTI port has to change
+Different people added things. Hardware changed. Disk sizes grew. The system was patched, extended and adapted over the years. Some of those changes can still be seen in the binaries and source code.
 
-| Layer | Xebec | OMTI |
-| --- | --- | --- |
-| Select | write ID `01` to port `00`, read back, pulse SEL on port `02`, poll BUSY (bit 1) on port `01` | strobe port `42h`, poll phase codes `C0/C9/CB/CF` on `41h` |
-| REQ | bit 0 of port `01` (`F255`) | bit 0 of `41h` — same idiom, different port |
-| Release | write port `01` (`F0F6`) | not required the same way |
-| CDB bytes | `OUT (0),A` per byte (`F215` loop) | `OUT (40h),A` |
-| Address | flat LBA in `CDB1..3` (`F1ED`) | raw cylinder / head / sector |
-| Data phase | bank-switched RAM stub at `3A00h`, `INIR`/`OTIR` patched in | same mechanism required — the banking constraint is independent of the controller |
+So I started wondering:
 
-## Status
+**Why not bring it back?**
 
-| Component | Status |
-| --- | --- |
-| Stock Xebec driver | Reverse engineered |
-| OMTI transport | Working |
-| OMTI G-DOS driver | Read/write and directory access verified |
-| Drive numbering | Stock G-DOS layout retained — floppies 0–3, hard disk 5/6 (two partitions) |
-| Boot sector at `4200h` | Written and executing, loaded by the Sopp EPROM |
-| Hard-disk boot | Loads G-DOS modules; does not yet reach the command prompt |
+Not because anybody needs another Z80 operating system in 2026. And certainly not because writing code for a computer from 1984 is the sensible way to spend one's time.
 
-The boot sector is this project's own, written to the hand-off contract the
-Sopp EPROM was observed to use. The original CalvaDOS boot sector has not
-turned up and may never.
+But because it is there.
 
-The machine boots substantially further under the emulator than when this
-started — the OMTI transport carries the whole load, with no floppy fallback
-anywhere in it — but it does not reach `Befehlseingabe`. The current work is in
-the module loader, where `SYS0/SYS` requests the same small set of modules in
-an unbroken cycle instead of advancing. Latest findings in
-`docs/reverse-engineering/calvados-investigation.md`.
+Because enough of it survived.
+
+And because, in a time when almost nobody has a reason to write software for a Genie IIIs anymore, it seemed like a good excuse to do exactly that.
+
+This is my personal **Lazarus project**: trying to bring CalvaDOS back from the dead.
+
+## The evolution of CalvaDOS
+
+The CalvaDOS that existed on the surviving machines was the result of several generations of modifications. The artifacts give us a glimpse of that evolution.
+
+| Stage | What                                                        | Controller | Disk          | Volumes       |
+| ----- | ----------------------------------------------------------- | ---------- | ------------- | ------------- |
+| A     | Stock G-DOS 2.4, built-in hard-disk driver                  | Xebec      | 10 MB         | 5, 6          |
+| B     | Arnulf Sopp, 1986 — new EPROM and SYS0/SYS on the hard disk | OMTI       | 10 MB         | 5, 6          |
+| C     | A. Magnus and Volker Dose, ~1990                            | —          | ~20 MB Tandon | 5, 6, 7, 8, 9 |
+| D     | E. Schroeer, ~1992                                          | —          | later ST-225  | 5, 6, ...     |
+
+The dates and details come from the surviving artifacts wherever possible. Where the evidence is incomplete, I would rather leave a question mark than invent an answer.
+
+That is also the philosophy of the reverse engineering in this repository: **separate what we know from what we think we know.**
+
+When a new discovery proves an earlier conclusion wrong, I prefer to leave the wrong turn visible. It is part of the story—and sometimes the wrong turn is what finally leads to the right answer.
+
+## What this repository contains
+
+This repository is both a preservation effort and an attempt to reconstruct the software.
+
+The original CalvaDOS source code has not been found. What exists here is therefore a mixture of surviving historical material, reconstructed code, experiments and documentation of what has been learned along the way.
+
+The aim is not to pretend that the missing original can simply be recreated from memory.
+
+The aim is to understand it well enough to make it live again.
+
+## Documentation
+
+The `docs/` directory contains the deeper technical material: architecture notes, reverse-engineering work, development notes and references to the original Genie IIIs software.
+
+If you want to go down the rabbit hole, start with:
+
+* `docs/architecture/`
+* `docs/reverse-engineering/`
+* `docs/development/`
+
+The repository is not intended to be a perfectly clean historical archive. It is a record of an ongoing attempt to understand a piece of software that disappeared decades ago.
 
 ## Quick start
 
@@ -113,59 +109,31 @@ tools/      Development and analysis tools
 docs/       Documentation
 ```
 
-## Documentation
-
-`docs/` holds the architecture notes, the reverse-engineering record, the
-development documentation and the period references the project leans on.
-
-If you're new to this, start with:
-
-- `docs/architecture/`
-- `docs/reverse-engineering/calvados-investigation.md`
-- `docs/development/README.md`
-
-What's here is curated rather than complete. The day-to-day working notes stay
-in a private repository; what made it into `docs/` is the material that's
-either established or useful as a dead end.
-
 ## Related repositories
 
-- sdltrs-MultiHDC
-- TCS-Trommeschlaeger-Genie-IIIs-GDos-2.4
-- TCS-Trommeschlaeger-Genie-IIIs
-- trsextract
-
-## Contributing
-
-Contributions are welcome, corrections especially — provided they come with
-evidence.
-
-Please:
-
-- Keep changes focused.
-- Separate observations from conclusions.
-- Include the traces, commands or artifacts behind any reverse-engineered
-  claim.
-- Preserve historical behaviour unless there's clear evidence the original
-  software behaved differently.
+* sdltrs-MultiHDC
+* TCS-Trommeschlaeger-Genie-IIIs-GDos-2.4
+* TCS-Trommeschlaeger-Genie-IIIs
+* trsextract
 
 ## Credits
 
-### Original software
+### The original Genie IIIs community
 
-- Arnulf Sopp (The Hacktory) — CalvaDOS and the 1986 OMTI boot EPROM
-- Andreas Magnus (HACKNUS-SOFTWARE)
-- Volker Dose
-- Helmut Bernhardt
-- The G-DOS 2.4 authors
-- TCS and Uwe Böker
+* Arnulf Sopp (The Hacktory) — CalvaDOS and the 1986 OMTI boot EPROM
+* Andreas Magnus (HACKNUS-SOFTWARE)
+* Volker Dose
+* Helmut Bernhardt
+* The G-DOS 2.4 authors
+* TCS and Uwe Böker
 
-### Recovery
+### Recovering what was left behind
 
-- Fritz Chwolka read `VOLKER.DMK` off Volker Dose's original floppy with a Catweasel
-  controller.
-- Jens Günther (JenGun), author of **sdltrs**, passed the recovered disk on.
-  Without it there would be nothing to work from.
+**Fritz Chwolka** recovered `VOLKER.DMK` from Volker Dose's original floppy using a Catweasel controller.
+
+**Jens Günther (JenGun)**, author of **sdltrs**, passed the recovered disk on.
+
+Without that disk, there would be very little to work with.
 
 ## License
 
@@ -173,6 +141,4 @@ New code is released under **GPLv3**.
 
 Documentation is released under **CC BY-SA 4.0**.
 
-Original ROMs, binaries and other historical material remain the property of
-their respective copyright holders and are included only for preservation and
-research where permitted.
+Original ROMs, binaries and other historical material remain the property of their respective copyright holders and are included only for preservation and research where permitted.
