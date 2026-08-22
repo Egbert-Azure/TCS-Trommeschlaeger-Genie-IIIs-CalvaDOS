@@ -45,7 +45,7 @@ So I started wondering:
 
 Not because anybody needs another Z80 operating system in 2026. And certainly not because writing code for a computer from 1984 is the sensible way to spend one's time.
 
-But because it is there (you know, like "why do I climb a mountain") - and yes, because "I can" (quoting my Scott Hanselman)
+But because it is there (you know, like "why do I climb a mountain") - and yes, because "I can" (quoting my Sformer colleague Scott Hanselman)
 
 Because enough of it survived.
 
