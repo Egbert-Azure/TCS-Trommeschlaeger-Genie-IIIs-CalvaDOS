@@ -13,9 +13,10 @@
 ;************************************************************************
 ;
 ; Format follows SYS8-sys-disassembly.asm -- see sys7-sys-disassembly.asm's
-; header for what that means and the same real-toolchain regeneration
-; command used here (trsload.py --extract 4D00-51CD -- this file's EOF is
-; 4/206, one record short of the usual 51E7h -- then one z80dasm pass).
+; header for what that means. This file's EOF is 4/206, one record short
+; of the usual 51E7h, so it ends at 51CDh.
+;
+;   z80dasm -g 0x4d00 -l -a -t sys22_flat.bin
 ;
 ; Not in Grosser -- like SYS26/SYS, his ch.7 table stops at SYS21 (stock
 ; NEWDOS/80's own range); SYS22-29 are GDOS/Genie extensions outside his
@@ -33,55 +34,34 @@
 ;
 ; [note]   read off the disassembly, not from any prior reference.
 
-m0000	EQU	0000h
-m000f	EQU	000fh
-m0010	EQU	0010h
-m0011	EQU	0011h
-m0021	EQU	0021h
-m0033	EQU	0033h
-m0062	EQU	0062h
+ROMCHR  EQU	0033h		;ROM: put character A on the screen
 m00f5	EQU	00f5h
 m00f9	EQU	00f9h
 m0100	EQU	0100h
-m0911	EQU	0911h
-m112a	EQU	112ah
-m1900	EQU	1900h
-m20a0	EQU	20a0h
-m2100	EQU	2100h
-m2101	EQU	2101h
-m2113	EQU	2113h
-m2162	EQU	2162h
 m22f9	EQU	22f9h
-m2931	EQU	2931h
-m29f1	EQU	29f1h
 m2ffb	EQU	2ffbh
 m37f9	EQU	37f9h
 m3c00	EQU	3c00h
-m4023	EQU	4023h
-m4024	EQU	4024h
-m402d	EQU	402dh
+VIDTOP  EQU	4023h		;video DCB: number of header lines
+VIDBOT  EQU	4024h		;video DCB: number of footer lines
+DOSRDY  EQU	402dh		;return to the DOS prompt
 m4080	EQU	4080h
 m4100	EQU	4100h
 m4121	EQU	4121h
-m4200	EQU	4200h
+SECBUF  EQU	4200h		;DOS sector buffer
 m42ff	EQU	42ffh
-m4307	EQU	4307h
-m4317	EQU	4317h
-m4369	EQU	4369h
-m4409	EQU	4409h		;DOS ERROR EXIT
-m4436	EQU	4436h
-m4480	EQU	4480h
+DMACH   EQU	4307h		;machine type; 04h is the Genie IIIs
+DMODUL  EQU	4317h		;current /SYS module
+DFLAG0  EQU	4369h		;DOS flags: DEBUG, CHAINING, BREAK key, RUN-ONLY (Grosser ch.3)
+DOSERR  EQU	4409h		;DOS error exit
+READ    EQU	4436h		;read a sector
+USRFCB  EQU	4480h		;FCB for loading and starting user programs
 m4482	EQU	4482h
 m4483	EQU	4483h
 m4488	EQU	4488h
 m448c	EQU	448ch
-m4cd5	EQU	4cd5h		;shared end-of-parameter/delimiter scanner (see sys17-sys-disassembly.asm)
+CHKCHR  EQU	4cd5h		;test the character at (HL)
 m51ce	EQU	51ceh
-m7909	EQU	7909h
-m8080	EQU	8080h
-m8341	EQU	8341h
-m8400	EQU	8400h
-mc911	EQU	0c911h
 	ORG	4D00H
 	CP	38H		;[note] module code 38h & 1Fh = 18h -> SYS-number 24-2 = 22, confirming this file.
 	JP	Z,m4fc7
@@ -103,14 +83,14 @@ m4d1a	CP	0F8H
 	JP	Z,m4dda
 m4d26	LD	A,2AH
 m4d28	EI
-	JP	m4409
+	JP	DOSERR
 m4d2c	LD	A,2FH
 	JR	m4d28
 m4d30	LD	C,10H
 	JR	m4d60
 m4d34	LD	C,13H
 	JR	m4d60
-m4d38	CALL	m4cd5
+m4d38	CALL	CHKCHR
 	LD	A,(HL)
 	CP	56H
 	LD	C,12H
@@ -124,19 +104,19 @@ m4d38	CALL	m4cd5
 	LD	A,3CH
 	RST	28H
 m4d51	LD	A,11H
-	CALL	m0033
+	CALL	ROMCHR
 	LD	A,4H
-	LD	(m4023),A
-	LD	(m4024),A
+	LD	(VIDTOP),A
+	LD	(VIDBOT),A
 	LD	C,0H
 m4d60	LD	A,C
-	LD	HL,m4369
+	LD	HL,DFLAG0
 	RES	6,(HL)
-	CALL	m0033
+	CALL	ROMCHR
 	LD	A,1CH
-	CALL	m0033
+	CALL	ROMCHR
 	LD	A,1FH
-m4d70	CALL	m0033
+m4d70	CALL	ROMCHR
 	XOR	A
 	RET
 m4d75	LD	A,(HL)
@@ -157,13 +137,13 @@ m4d86	LD	A,(HL)
 	DEC	HL
 m4d96	CALL	m4da5
 	JP	m502e
-m4d9c	CALL	m4cd5
-	CALL	m4cd5
+m4d9c	CALL	CHKCHR
+	CALL	CHKCHR
 	RET	Z
 	JR	m4d86
 m4da5	INC	HL
-	CALL	m4cd5
-	CALL	m4cd5
+	CALL	CHKCHR
+	CALL	CHKCHR
 	LD	A,(HL)
 	LD	HL,m2ffb
 	RET	Z
@@ -191,14 +171,14 @@ m4dd8	OR	A
 m4dda	POP	AF
 	POP	HL
 	LD	A,0FFH
-	LD	(m4317),A
+	LD	(DMODUL),A
 	LD	(4DECH),SP
 	LD	SP,m51ce
 	CALL	m4df4
-	LD	SP,m0000
+	LD	SP,0000H
 	JP	Z,402DH
 	JP	m4d28
-m4df4	LD	A,(m4307)
+m4df4	LD	A,(DMACH)
 	LD	B,A
 	AND	0EH
 	CP	4H
@@ -212,8 +192,8 @@ m4df4	LD	A,(m4307)
 	LD	(m5037),A
 	LD	A,20H
 	LD	(m4edd),A
-m4e13	CALL	m4cd5
-	CALL	m4cd5
+m4e13	CALL	CHKCHR
+	CALL	CHKCHR
 	LD	A,(HL)
 	LD	(4E61H),A
 	JR	Z,m4e3c
@@ -232,7 +212,7 @@ m4e35	CALL	m4da5
 	JR	NZ,m4e3c
 	LD	(HL),1H
 m4e3c	LD	B,0H
-	LD	HL,m4200
+	LD	HL,SECBUF
 	LD	(m4483),HL
 	LD	A,(m448c)
 	LD	H,A
@@ -276,7 +256,7 @@ m4e8c	LD	A,(4E61H)
 	LD	A,80H
 	LD	(HL),1H
 m4e99	LD	(m3c00),A
-	LD	HL,m8400
+	LD	HL,8400H
 	LD	B,10H
 m4ea1	INC	E
 	JR	NZ,m4ed5
@@ -290,8 +270,8 @@ m4ea1	INC	E
 	OUT	(m00f9),A
 	EI
 	PUSH	DE
-	LD	DE,m4480
-	CALL	m4436
+	LD	DE,USRFCB
+	CALL	READ
 	POP	DE
 	JR	Z,m4ec5
 	PUSH	AF
@@ -359,7 +339,7 @@ m4f33	LD	HL,m3c00
 	CALL	m50e5
 	DI
 	LD	(HL),C
-	LD	HL,m8400
+	LD	HL,8400H
 	LD	B,10H
 	IN	A,(m00f9)
 	OR	2H
@@ -414,7 +394,7 @@ m4f9d	INC	B
 	SET	7,A
 m4fa7	RLCA
 	DJNZ	m4fa7
-m4faa	LD	BC,m0000
+m4faa	LD	BC,0000H
 	JR	m4f7b
 m4faf	LD	A,E
 	AND	0FH
@@ -435,7 +415,7 @@ m4fc7	CALL	m4fcf
 m4fcf	LD	BC,m4080
 	LD	HL,m2ffb
 	RES	0,(HL)
-	LD	A,(m4307)
+	LD	A,(DMACH)
 	AND	0FH
 	CP	2H
 	JR	NZ,m4fe4
@@ -448,7 +428,7 @@ m4fe4	CP	5H
 m4fea	RES	0,A
 	CP	4H
 	RET	NZ
-m4fef	LD	HL,m4480
+m4fef	LD	HL,USRFCB
 	PUSH	HL
 	PUSH	BC
 	LD	B,3H
@@ -496,7 +476,7 @@ m502e	PUSH	IX
 	RET
 m5037	LD	HL,m2ffb
 	SET	0,(HL)
-	LD	A,(m4307)
+	LD	A,(DMACH)
 	AND	0FH
 	CP	2H
 	JR	NZ,m5049
@@ -512,16 +492,16 @@ m5049	CP	4H
 	JR	Z,m5059
 	XOR	A
 	LD	(5068H),A
-m5059	LD	BC,m20a0
+m5059	LD	BC,20A0H
 	LD	HL,m510f
 m505f	PUSH	BC
 	PUSH	HL
-	LD	HL,m4480
+	LD	HL,USRFCB
 	LD	E,L
 	LD	D,H
 	INC	DE
 	LD	(HL),0FFH
-	LD	BC,m000f
+	LD	BC,000FH
 	LDIR
 	POP	HL
 	LD	DE,m4482
@@ -549,14 +529,14 @@ m508d	POP	BC
 	DJNZ	m505f
 	XOR	A
 	RET
-m5097	LD	BC,m8080
+m5097	LD	BC,8080H
 	EXX
 	LD	HL,m0100
 	EXX
 	LD	A,(m2ffb)
 	LD	(50B7H),A
 m50a5	EXX
-	LD	DE,m4480
+	LD	DE,USRFCB
 	LD	B,10H
 	IN	A,(m00f9)
 	SET	0,A
@@ -580,7 +560,7 @@ m50bf	LD	(DE),A
 	DJNZ	m50a5
 	XOR	A
 	RET
-m50d3	LD	DE,m4480
+m50d3	LD	DE,USRFCB
 	LD	A,(m37f9)
 	CP	9H
 	JR	NC,m50de
@@ -593,10 +573,10 @@ m50de	PUSH	BC
 m50e5	PUSH	DE
 	EXX
 	POP	DE
-	LD	BC,m0010
+	LD	BC,0010H
 	JR	m50f4
 m50ed	EXX
-	LD	DE,m4200
+	LD	DE,SECBUF
 	LD	BC,m0100
 m50f4	PUSH	HL
 	LD	H,0H
@@ -620,7 +600,7 @@ m50f4	PUSH	HL
 	RET
 m510f	NOP
 	DEC	H
-	LD	BC,m0021
+	LD	BC,0021H
 	LD	D,E
 	NOP
 	LD	D,D
@@ -629,30 +609,30 @@ m510f	NOP
 	LD	SP,HL
 	LD	D,D
 	NOP
-	LD	HL,m29f1
+	LD	HL,29F1H
 	LD	(HL),C
 	AND	C
 	LD	A,C
-	LD	HL,m1900
+	LD	HL,1900H
 	SBC	A,C
 	LD	B,C
-	LD	HL,mc911
+	LD	HL,0C911H
 	POP	BC
 	NOP
-	LD	DE,m112a
+	LD	DE,112AH
 	XOR	C
 	LD	L,C
 	SUB	C
 	NOP
 	LD	H,D
-	LD	HL,m0011
+	LD	HL,0011H
 	LD	B,C
-	LD	HL,m2113
+	LD	HL,2113H
 	LD	B,C
 	NOP
-	LD	HL,m8341
+	LD	HL,8341H
 	LD	B,C
-	LD	HL,m2100
+	LD	HL,2100H
 	XOR	C
 	LD	(HL),C
 	LD	SP,HL
@@ -663,7 +643,7 @@ m510f	NOP
 	NOP
 	INC	B
 	LD	H,D
-	LD	HL,m0011
+	LD	HL,0011H
 	INC	BC
 	LD	SP,HL
 	NOP
@@ -671,7 +651,7 @@ m510f	NOP
 	LD	(m0100),A
 	ADD	A,C
 	LD	B,C
-	LD	HL,m0911
+	LD	HL,0911H
 	NOP
 	LD	(HL),C
 	ADC	A,C
@@ -681,7 +661,7 @@ m510f	NOP
 	ADC	A,C
 	LD	(HL),C
 	NOP
-	LD	HL,m2931
+	LD	HL,2931H
 	INC	HL
 	LD	SP,HL
 	NOP
@@ -715,7 +695,7 @@ m510f	NOP
 	LD	(HL),C
 	NOP
 	LD	H,C
-	LD	DE,m7909
+	LD	DE,7909H
 	ADC	A,D
 	LD	(HL),C
 	NOP
@@ -738,12 +718,12 @@ m510f	NOP
 	NOP
 	LD	(BC),A
 	LD	H,D
-	LD	BC,m0062
+	LD	BC,0062H
 	LD	(BC),A
 	LD	H,D
-	LD	BC,m2162
+	LD	BC,2162H
 	LD	DE,m4100
-	LD	HL,m0911
+	LD	HL,0911H
 	LD	DE,m4121
 	NOP
 	LD	(BC),A
@@ -752,11 +732,11 @@ m510f	NOP
 	LD	DE,m4121
 	ADD	A,C
 	LD	B,C
-	LD	HL,m0011
+	LD	HL,0011H
 	LD	(HL),C
 	ADC	A,C
 	ADD	A,C
 	LD	B,C
-	LD	HL,m2101
+	LD	HL,2101H
 	NOP
 	END	4D00H

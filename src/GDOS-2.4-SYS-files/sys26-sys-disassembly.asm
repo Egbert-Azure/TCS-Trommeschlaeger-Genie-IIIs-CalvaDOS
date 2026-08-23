@@ -392,7 +392,7 @@ sub_4f34h:
 	ld (043d8h),a		;4f35	32 d8 43	2 . C
 ; [PATCH] a flag at 45BEh reset to 0 -- unchanged by the patch (matches GETSYS's own prologue clearing the same cell).
 	ld (045beh),a		;4f38	32 be 45	2 . E
-; [PATCH] stock: CALL 4776h (DRVSEL, A still 0 from the XOR A three lines above -- drive 0, hardcoded). Patched: CALL 50D0h, a same-size stub (LD A,05h / JP 4776h) planted in dead space -- see 50d0h below. File size is unchanged; dmk.py --replace has no support for growing a file's on-disk allocation, so an in-place same-footprint fix was required and this 10-byte block (XOR A + two stores + CALL) has no 1-byte way to load A with sysvol.
+; [PATCH] stock: CALL 4776h (DRVSEL, A still 0 from the XOR A three lines above -- drive 0, hardcoded). Patched: CALL 50D0h, a same-size stub (LD A,05h / JP 4776h) planted in dead space -- see 50d0h below. File size is unchanged: a file's on-disk allocation cannot grow, so the fix had to keep the same footprint and this 10-byte block (XOR A + two stores + CALL) has no 1-byte way to load A with sysvol.
 	call sub_50d0h		;4f3b	cd d0 50	. . P
 ; original continuation after the DRVSEL call -- unchanged. The patch's stub tail-jumps into 4776h, so DRVSEL's own eventual RET returns here exactly as stock did.
 	ld b,008h		;4f3e	06 08		. .

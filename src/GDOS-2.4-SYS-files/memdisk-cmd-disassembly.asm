@@ -12,7 +12,7 @@
 ;
 ;************************************************************************
 ;
-; Not a SYS-file -- a loadable CMD to initilize the RAMDISK on drive 4, five 256-byte-ish load records entry at 3000h:
+; CMD to initilize the RAMDISK on drive 4, five 256-byte-ish load records entry at 3000h:
 ;
 ;   0x0000  LOAD  256B  3000..30FF
 ;   0x0104  LOAD  256B  3100..31FF
@@ -21,14 +21,42 @@
 ;   0x040e  LOAD   67B  5200..5242
 ;   0x0455  ENTRY 3000
 ;
-; Disassembled while tracking down a "Bauteil nicht erreichbar" failure when
-; MEMDISK initialised its RAM disk over the OMTI port. Annotated where
-; traced; several blocks -- the I/H/F argument switches, the dbanks bit 2/3
-; block at 3061h, the two low-RAM copy helpers at 3103h/312Dh, and the
-; DRVSEL/transfer hooks at 31C7h-3230h -- were read but not traced to the
-; same depth, and are marked where that is so.
+;   z80dasm -g 0x3000 -l -a -t memdisk_flat.bin
 ;
-; [note]   read off the disassembly, not from any reference.
+; MEMDISK reaches deep into the DOS's own low RAM: it installs a resident
+; driver at F400h, chains a handler into the dispatch table at F016h, and
+; rewrites DPDRV, DPPTR and DNDRV. The addresses it uses are the same ones
+; the hard-disk driver at F000h uses, which is why the two have to agree
+; about that layout.
+;
+; Addresses outside this file. Names follow Grosser where he gives one --
+; DRVSEL and TIME are his -- and docs/reference/gdos-2.4-addresses.md
+; otherwise. An address with no documented meaning keeps its number.
+
+ROMCHR	EQU	0033h		;ROM: put character A on the screen
+DBANKS	EQU	36ffh		;banked-RAM size and flag bits
+RPDRV	EQU	37cch		;relocated PDRIVE block
+DTABH	EQU	37d6h		;drive table, high bytes
+DTAB	EQU	37dfh		;drive table
+RSTUB	EQU	3a00h		;low-RAM transfer stub
+DOSRDY	EQU	402dh		;return to the DOS prompt
+SECBUF	EQU	4200h		;DOS sector buffer
+DMACH	EQU	4307h		;machine type; 04h is the Genie IIIs
+DMASK	EQU	4309h		;drive-select bit pattern for 37E1h
+DPDRV	EQU	430ah		;PDRIVE parameters of the current drive
+DPPTR	EQU	4399h		;pointer into the PDRIVE table
+DNDRV	EQU	439fh		;number of drives
+DOSCMD	EQU	4405h		;execute the DOS command at (HL)
+DOSERR	EQU	4409h		;DOS error exit
+TIME	EQU	446dh		;read the clock
+READS	EQU	4630h		;read a physical sector
+WRITDS	EQU	463ch		;write a directory sector
+WRITES	EQU	4640h		;write a physical sector
+DSKMNT	EQU	47efh		;wait for the index hole
+CHKCHR	EQU	4cd5h		;test the character at (HL)
+GWORK	EQU	0f00dh		;hard-disk driver's work vector
+GDISP3	EQU	0f016h		;hard-disk driver's dispatch table, slot 3
+GSTK	EQU	0f040h		;hard-disk driver's stack
 
 	ORG	3000h
 
@@ -36,10 +64,10 @@
 ; command-tail argument follows "MEMDISK" (HL points at it on entry, per
 ; the same convention as SYS8/SYS's own DIR argument parsing).
 
-	LD	A,(4307h)	;3000  machine-type byte
+	LD	A,(DMACH)	;3000  machine type
 	CP	004h		;3003  must be Genie IIIs
 	LD	A,02ah		;3005
-	JP	NZ,04409h	;3007  wrong machine -> DOSERR, error 2Ah
+	JP	NZ,DOSERR	;3007  wrong machine -> DOSERR, error 2Ah
 	LD	(030feh),SP	;300a  save caller's SP
 	LD	A,(HL)		;300e
 	CP	04eh		;300f  'N'
@@ -49,90 +77,85 @@ l3015h:
 	INC	HL		;3015  (DEC/INC HL above is a net no-op the
 				;first time through; l3015h is also the loop
 				;head other branches below rejoin at)
-	CALL	04cd5h		;3016  shared end-of-parameter/delimiter
+	CALL	CHKCHR		;3016  shared end-of-parameter/delimiter
 				;scanner (same routine SYS17/SYS's own
 				;argument parsing uses -- see that file's own
 				;comment). Z = nothing more on the line.
 	JR	Z,l3042h	;3019  bare "MEMDISK", no argument -> l3042h,
-				;the default-install path traced here
+				;the default-install path
 	LD	A,(HL)		;301b
 	CP	049h		;301c  'I'
-	JR	Z,l3034h	;301e  MEMDISK I -- not traced
+	JR	Z,l3034h	;301e  MEMDISK I
 	CP	048h		;3020  'H'
-	JR	Z,l302dh	;3022  MEMDISK H -- not traced
+	JR	Z,l302dh	;3022  MEMDISK H
 	CP	046h		;3024  'F'
-	JR	Z,l303dh	;3026  MEMDISK F -- not traced
+	JR	Z,l303dh	;3026  MEMDISK F
 	LD	A,034h		;3028  unrecognised letter
-	JP	04409h		;302a  DOSERR, error 34h ("schlechte
+	JP	DOSERR		;302a  DOSERR, error 34h ("schlechte
 				;Parameter" per SYS17/SYS's own comment on
 				;this same 4CD5h routine's error convention)
 l302dh:				;MEMDISK H
 	LD	A,03eh		;302d
 	LD	(l3068h),A	;302f  patches a byte inside the low-RAM
-				;stub template (l315ah block, see below) --
-				;not traced further
+				;stub template at l315ah
 	JR	l3015h		;3032  back for another argument character
 l3034h:				;MEMDISK I
-	LD	DE,0402dh	;3034
-	LD	(0339dh),DE	;3037  patches a stored address (0339dh is
-				;inside the 3300h load record's own data,
-				;not traced further)
+	LD	DE,DOSRDY	;3034
+	LD	(0339dh),DE	;3037  patches a stored address inside the
+				;3300h load record's own data
 	JR	l3015h		;303b
 l303dh:				;MEMDISK F
 	LD	(032e2h),HL	;303d  stores HL (mid-command-tail pointer)
-				;at 32e2h -- not traced further
+				;at 32e2h
 	JR	l3015h		;3040
 
-; Default install (no argument). Reads dnflop (477Ah, the SAME address
-; SYS0/SYS's own init copies dnflop into once at boot -- see this
-; project's own gdos-omti.asm EQU list) as the target DOS drive number,
-; and probes it live via DRVSEL before doing anything else. dnflop=4 in
-; this build (4 floppies configured), so this is "install as the drive
-; right after the last floppy" -- not a hardcoded drive-4 assumption,
-; a computed one.
+; Default install (no argument). 477Ah holds the floppy count -- SYS0/SYS's
+; init writes it there, into DRVSEL's own CP operand. MEMDISK takes it as
+; the target drive number and probes it through DRVSEL before doing
+; anything else. With four floppies
+; configured that means "install as the drive after the last floppy" -- a
+; computed drive number, not a hardcoded 4.
 
 l3042h:
-	LD	A,(0477ah)	;3042  dnflop, boot-time constant (see above)
+	LD	A,(0477ah)	;3042  the floppy count, as DRVSEL's own
+				;CP operand holds it
 	LD	(l32d9h+1),A	;3045  self-modifies l32d9h's own "LD A,002h"
 				;immediate operand -- l32d9h (below) re-probes
 				;the SAME drive number later with its own,
 				;separately-reached DRVSEL(2) call becoming
-				;DRVSEL(dnflop) once this patch lands
+				;DRVSEL(floppy count) once this patch lands
 	OR	030h		;3048  -> ASCII digit
 	LD	(033a3h),A	;304a  patches a drive-number digit into a
 				;message/table byte at 33a3h (inside the
 				;3300h load record's own data)
 	AND	00fh		;304d  back to the raw digit
-	CALL	0445bh		;304f  DRVSEL(dnflop) -- 445Bh is DRVSEL's own
-				;alias entry (JP 4776h per SYS0/SYS's own
-				;disassembly, "Name: DRVSEL (Fortsetzung von
-				;445BH)"). This project's own driver patches
-				;477Ch, inside that same routine, so this call
-				;runs through gdrvsl/gdisp/gpar's dispatch.
+	CALL	0445bh		;304f  the DRVSEL vector: JP 4776h. The
+				;hard-disk driver hooks 477Ch inside that
+				;routine, so this call runs through its
+				;dispatch table
 	JP	Z,l32d9h	;3052  DRVSEL succeeded -> l32d9h, the shared
 				;verify+install continuation (also reached
 				;from elsewhere, see below)
-	LD	HL,036ffh	;3055  dbanks (the OMTI driver's
-				;banked-RAM-size byte, set by ginit's gini
-				;loop -- see gdos-omti.asm)
+	LD	HL,DBANKS	;3055  the banked-RAM size byte the
+				;hard-disk driver's ginit sizes at boot
 	BIT	2,(HL)		;3058
 	JR	Z,l3061h	;305a
 	LD	A,03bh		;305c
-	JP	04409h		;305e  DOSERR, error 3Bh -- the leading
+	JP	DOSERR		;305e  DOSERR, error 3Bh -- the leading
 				;candidate for "Bauteil nicht erreichbar",
-				;reached if DRVSEL(dnflop) failed AND dbanks
+				;reached if that DRVSEL failed AND DBANKS
 				;bit 2 is clear
 l3061h:
-	BIT	3,(HL)		;3061  dbanks bit 3 -- not traced further
+	BIT	3,(HL)		;3061  DBANKS bit 3
 	LD	A,002h		;3063
 	JR	Z,l3068h	;3065
 	DEC	A		;3067
 l3068h:
 	CP	001h		;3068
 	LD	(030a7h),A	;306a  stores into the 3000h load record's
-				;own data area -- not traced further
+				;own data area
 	LD	C,0fbh		;306d
-	SET	2,(HL)		;306f  dbanks bit 2 set (marks it "sized",
+	SET	2,(HL)		;306f  DBANKS bit 2 set (marks it "sized",
 				;consistent with ginit's own use of this bit)
 	DEC	A		;3071
 	JR	Z,l3078h	;3072
@@ -140,43 +163,39 @@ l3068h:
 	RES	3,C		;3076
 l3078h:
 
-; dndrv increment, the F9h bit-0 bank-switch (confirmed functionally
-; inert in this emulator's own trs_memory.c model -- see the
-; earlier finding), and the collision itself: 360 bytes of MEMDISK's own
-; resident code copied to F400h, squarely inside the OMTI driver's own
-; F000h-F5EAh occupancy. The driver answers this by placing ginit and gcfg
-; -- both finished once the boot ends -- across F3A6h-F585h, so the range
-; MEMDISK overwrites holds no live code by the time it runs.
+; DNDRV increment, an F9h bit-0 bank switch, and the copy that matters:
+; 360 bytes of MEMDISK's own resident code to F400h, inside the hard-disk
+; driver's F000h-F5EAh span. The driver lays ginit and gcfg across
+; F3A6h-F585h for exactly this reason -- both are finished once the boot
+; ends, so the range MEMDISK overwrites holds no live code by then.
 
-	LD	A,(0477ah)	;3078  dnflop again
+	LD	A,(0477ah)	;3078  the floppy count again
 	LD	B,A		;307b
-	LD	HL,0439fh	;307c  dndrv
-	INC	(HL)		;307f  MEMDISK increments dndrv by 1
+	LD	HL,DNDRV	;307c
+	INC	(HL)		;307f  MEMDISK increments DNDRV by 1
 	DI			;3080
 	IN	A,(0f9h)	;3081
 	AND	03eh		;3083
-	OR	001h		;3085  bit 0 only -- confirmed inert here
+	OR	001h		;3085  bit 0 only
 	OUT	(0f9h),A	;3087
 	LD	(l315ah),BC	;3089  BC into the low-RAM stub template's
 				;own leading bytes (see l315ah below)
 	LD	HL,l315ah	;308d
-	LD	DE,0f400h	;3090  <-- the collision target
+	LD	DE,0f400h	;3090  the resident driver's home
 	LD	BC,00168h	;3093  360 bytes
 	LDIR			;3096  copies MEMDISK's own resident driver,
 				;below, to F400h
-	LD	A,(l32d9h+1)	;3098  the self-modified dnflop-as-drive-digit
+	LD	A,(l32d9h+1)	;3098  the self-modified floppy-count-as-drive-digit
 				;byte, patched in at 3045h above
 	LD	L,A		;309b
 	LD	H,0f0h		;309c
 	LD	(HL),030h	;309e  writes ASCII '0' at F0xxh, x = the
-				;drive digit -- not traced further
+				;drive digit
 	LD	HL,0f4a3h	;30a0
-	LD	(0f016h),HL	;30a3  installs a jump target at F016h -- one
-				;of this driver's own dispatch-table slots
-				;(gdos-omti.asm's DEFW table runs F010h-F01Fh)
-				;-- not traced further, but structurally this
-				;looks like MEMDISK trying to chain its own
-				;handler into that table directly, post-copy
+	LD	(GDISP3),HL	;30a3  chains MEMDISK's own handler into the
+				;hard-disk driver's dispatch table, whose
+				;slots run F010h-F01Fh. This is what claims
+				;the drive: until it runs, that slot rejects
 	LD	A,000h		;30a6
 	LD	B,A		;30a8
 	CP	002h		;30a9
@@ -189,20 +208,18 @@ l3078h:
 	LD	(0331eh),A	;30bb
 l30beh:
 	LD	(0f42bh),HL	;30be
-	LD	HL,037deh	;30c1  dtab region (the OMTI driver's
+	LD	HL,DTAB-1	;30c1  dtab region (the OMTI driver's
 				;own dtab EQU 37dfh is one byte higher)
-	LD	DE,037dfh	;30c4
+	LD	DE,DTAB	;30c4
 	LD	BC,00009h	;30c7
 	LDDR			;30ca
-	LD	A,(l32d9h+1)	;30cc  the dnflop-as-drive digit again
-	LD	(037d6h),A	;30cf  dtabh (matches gdos-omti.asm's own
-				;dtabh EQU 37d6h)
+	LD	A,(l32d9h+1)	;30cc  the floppy-count-as-drive digit again
+	LD	(DTABH),A	;30cf
 	LD	SP,03400h	;30d2
 
-; A banked-RAM-sizing loop, structurally parallel to the OMTI driver's
-; ginit (gdos-omti.asm's gini1-gini3) -- read/complement/compare each bank
-; to find how much RAM is actually there. Not traced instruction-by-
-; instruction against ginit's own version.
+; A banked-RAM-sizing loop: read, complement and compare each bank to find
+; how much RAM is actually there. The hard-disk driver's ginit does the
+; same job the same way.
 
 	IN	A,(0f9h)	;30d5
 	AND	03eh		;30d7
@@ -228,10 +245,9 @@ l30ddh:
 	LD	SP,00000h	;30fd
 	JP	l32d9h		;3100  on to the shared verify+install tail
 
-; Two bank-aware LDIR helpers (copy 100h/256 bytes each way across the
-; F9h bank switch), read but not traced against a caller --
-; l3103h is copied to 4000h by the sizing loop above and run from there;
-; l312dh is not observed called from anywhere in this range.
+; Two bank-aware LDIR helpers, 256 bytes each way across the F9h bank
+; switch. l3103h is copied to 4000h by the sizing loop above and runs from
+; there; nothing in this range calls l312dh.
 
 l3103h:
 	PUSH	HL		;3103
@@ -320,9 +336,8 @@ l3178h:
 	POP	BC		;3181
 	RET			;3182
 
-; A geometry/divide helper, structurally parallel to bootrd.asm's own
-; divhl / omti.asm's hddiv (same double-divide-and-clamp shape building a
-; CHS-style address). Not traced instruction-by-instruction.
+; A geometry/divide helper: the same double-divide-and-clamp shape that
+; bootrd.asm's divhl and omti.asm's hddiv use to build a CHS address.
 
 	EX	DE,HL		;3183
 	LD	DE,00000h	;3184
@@ -375,11 +390,9 @@ l31c3h:
 	EX	DE,HL		;31c5
 	RET			;31c6
 
-; DRVSEL/transfer hook handlers -- MEMDISK's own equivalent of this
-; project's driver's ghook/gdrvsl/gxfhk (gdos-omti.asm). Not traced
-; instruction-by-instruction against those; noted here only
-; because they are exactly the kind of code the OMTI driver's own gpass fix
-; is trying to hand a claimed-but-not-owned drive off to.
+; DRVSEL and transfer hook handlers -- MEMDISK's counterpart to the
+; hard-disk driver's ghook, gdrvsl and gxfhk. These decide whether a drive
+; belongs to the RAM disk, and hand it back when it does not.
 
 	CALL	0f429h		;31c7
 	JR	NZ,l31dfh	;31ca
@@ -409,28 +422,27 @@ l31dfh:
 	XOR	A		;31fa
 	JR	l31dfh		;31fb
 
-; GETSYS/DOSERR-adjacent setup: forces (47efh) [dmount, this port's
-; own EQU], zeroes (4309h) [dmask], installs a jump at F00Eh -- this
-; project's own driver's ginit entry point is F00Ah, three bytes earlier
-; -- copies 8 bytes from F402h to 430Ah [dpdrv], and points dpptr (4399h)
-; at 37cch [rpdrv]. All addresses match the OMTI driver's
-; EQU list in gdos-omti.asm exactly, confirming MEMDISK is deliberately
-; interoperating with this specific driver's own low-RAM layout, not
-; stock GDOS's Xebec driver's layout.
+; Install: makes DSKMNT return immediately, clears DMASK, points the
+; driver's work vector GWORK+1 at its own handler, copies eight bytes of
+; PDRIVE parameters to DPDRV and repoints DPPTR at RPDRV.
+;
+; Every one of those addresses is one the hard-disk driver at F000h also
+; uses -- GWORK+1 is three bytes past its ginit entry. MEMDISK is written
+; against this low-RAM layout, not the stock Xebec driver's.
 
 	LD	A,0c9h		;31fd
-	LD	(047efh),A	;31ff
+	LD	(DSKMNT),A	;31ff
 	XOR	A		;3202
-	LD	(04309h),A	;3203
+	LD	(DMASK),A	;3203
 	LD	HL,0f4d7h	;3206
-	LD	(0f00eh),HL	;3209
+	LD	(GWORK+1),HL	;3209
 	LD	HL,0f402h	;320c
-	LD	DE,0430ah	;320f
+	LD	DE,DPDRV	;320f
 	LD	BC,00008h	;3212
 	LDIR			;3215
 	LD	HL,0f402h	;3217
-	LD	DE,037cch	;321a
-	LD	(04399h),DE	;321d
+	LD	DE,RPDRV	;321a
+	LD	(DPPTR),DE	;321d
 	LD	BC,0000ah	;3221
 	DI			;3224
 	IN	A,(0f9h)	;3225
@@ -441,11 +453,9 @@ l31dfh:
 	XOR	A		;322f
 	RET			;3230
 
-; Entry trampoline, structurally parallel to the OMTI driver's
-; gbank/gexit0/gexit1 (gdos-omti.asm) -- self-modified SP save/restore
-; and a low-RAM stub copy (F4FDh -> 3A00h, 6Bh/107 bytes -- close to but
-; not the same size as the OMTI driver's gstub). Not traced
-; instruction-by-instruction against gbank/gexit0/gexit1.
+; Entry trampoline: a self-modified SP save and restore, then 107 bytes of
+; stub copied from F4FDh down to RSTUB. The hard-disk driver's gbank,
+; gexit0 and gexit1 do the same job with a stub of a different size.
 
 	EX	AF,AF'		;3231
 	DI			;3232
@@ -460,16 +470,16 @@ l31dfh:
 	PUSH	DE		;3243
 	PUSH	HL		;3244
 	LD	HL,0f4fdh	;3245
-	LD	DE,03a00h	;3248
+	LD	DE,RSTUB	;3248
 	LD	BC,0006bh	;324b
 	LDIR			;324e
 	POP	HL		;3250
 	POP	DE		;3251
 	PUSH	DE		;3252
 	PUSH	HL		;3253
-	JP	03a00h		;3254
+	JP	RSTUB		;3254
 	LD	(03a36h),SP	;3257
-	LD	SP,0f040h	;325b
+	LD	SP,GSTK	;325b
 	BIT	5,A		;325e
 	JR	Z,l32a9h	;3260
 	PUSH	DE		;3262
@@ -507,7 +517,7 @@ l328bh:
 	POP	HL		;329a
 	POP	DE		;329b
 	POP	BC		;329c
-	LD	SP,0f040h	;329d
+	LD	SP,GSTK	;329d
 	PUSH	AF		;32a0
 	IN	A,(0fah)	;32a1
 	RES	0,A		;32a3
@@ -529,17 +539,16 @@ l32a9h:
 	LDIR			;32be
 	JR	l328bh		;32c0
 
-; Transfer helpers -- loop A DOS reads/writes through 4640h/463Ch (this
-; project's own dxfer/dxferf, per gdos-omti.asm's own EQU list) B times,
+; Transfer helpers: loop a DOS read or write through WRITES/WRITDS B times,
 ; advancing DE each time.
 
 l32c2h:
-	CALL	04640h		;32c2
+	CALL	WRITES		;32c2
 	INC	DE		;32c5
 	DJNZ	l32c2h		;32c6
 	RET			;32c8
 l32c9h:
-	CALL	0463ch		;32c9
+	CALL	WRITDS		;32c9
 	INC	DE		;32cc
 	DJNZ	l32c9h		;32cd
 	RET			;32cf
@@ -548,35 +557,35 @@ l32c9h:
 ; project's own driver's ginit copies gcfg to (gdos-omti.asm).
 
 sub_32d0h:
-	LD	HL,04200h	;32d0
+	LD	HL,SECBUF	;32d0
 l32d3h:
 	LD	(HL),000h	;32d3
 	INC	L		;32d5
 	JR	NZ,l32d3h	;32d6
 	RET			;32d8
 
-; Shared verify+install continuation. Reached from l3042h above (the
-; default-install path, A already primed to the dnflop-derived drive
-; number by that path's own self-modification of this routine's very
-; first instruction) -- and structurally reachable on its own, since it
-; re-probes DRVSEL independently rather than trusting the caller blindly.
-; Ends with a jump to 4405h, not 4409h/DOSERR -- a different stock GDOS
-; entry point, not otherwise seen in this port's patch set. Not
-; traced past that point.
+; Shared verify+install continuation, and the bulk of the work: it lays a
+; GAT, a directory header and two directory entries onto the new drive, then
+; hands "DIR 4" to DOSCMD.
+;
+; Reached from l3042h, which has already primed A by self-modifying this
+; routine's first instruction -- but it re-probes DRVSEL itself rather than
+; trusting the caller. It ends at DOSCMD, not DOSERR: the RAM disk is built,
+; so the command line runs.
 
 l32d9h:
-	LD	A,002h		;32d9  self-modified to dnflop by 3045h above,
+	LD	A,002h		;32d9  self-modified to the floppy count by 3045h above,
 				;when reached via the default-install path
-	CALL	0445bh		;32db  DRVSEL(dnflop) -- re-probes the same
+	CALL	0445bh		;32db  DRVSEL(floppy count) -- re-probes the same
 				;drive this path already probed once at 304Fh
-	JP	NZ,04409h	;32de  DOSERR if the re-probe itself fails
+	JP	NZ,DOSERR	;32de  DOSERR if the re-probe itself fails
 	LD	HL,00000h	;32e1
 	LD	A,(HL)		;32e4
 	CP	046h		;32e5  'F'
 	JR	Z,l32f7h	;32e7
 	LD	DE,00005h	;32e9
-	LD	HL,04200h	;32ec
-	CALL	04630h		;32ef  dxfer (the OMTI driver's EQU)
+	LD	HL,SECBUF	;32ec
+	CALL	READS		;32ef  dxfer (the OMTI driver's EQU)
 	CP	006h		;32f2
 	JP	Z,l3399h	;32f4
 l32f7h:
@@ -585,7 +594,7 @@ l32f7h:
 	LD	HL,l33a5h	;32fb  data table, see below
 	LD	BC,00003h	;32fe
 	LDIR			;3301
-	LD	HL,04200h	;3303
+	LD	HL,SECBUF	;3303
 	LD	DE,00000h	;3306
 	LD	B,002h		;3309
 	CALL	l32c2h		;330b
@@ -608,98 +617,95 @@ l3327h:
 	LD	(HL),0ffh	;3327
 	INC	L		;3329
 	JR	NZ,l3327h	;332a
-	LD	HL,033b5h	;332c
-	CALL	0446dh		;332f
+	LD	HL,l33b5h	;332c
+	CALL	TIME		;332f
 	LD	HL,02020h	;3332
 	LD	(l33bah),HL	;3335
 	LD	(l33bah+1),HL	;3338
 	LD	HL,l33a8h	;333b
-	LD	DE,042cbh	;333e
+	LD	DE,SECBUF+0cbh	;333e
 	LD	BC,00022h	;3341
 	LDIR			;3344
-	LD	HL,04200h	;3346
+	LD	HL,SECBUF	;3346
 	LD	DE,00005h	;3349
-	CALL	0463ch		;334c
+	CALL	WRITDS		;334c
 	CALL	sub_32d0h	;334f
 	LD	BC,0cea1h	;3352
-	LD	(04200h),BC	;3355
+	LD	(SECBUF),BC	;3355
 	INC	DE		;3359
-	CALL	0463ch		;335a
+	CALL	WRITDS		;335a
 	EX	DE,HL		;335d
 	LD	HL,l33beh	;335e
 	LD	BC,00020h	;3361
 	LDIR			;3364
 	LD	DE,00007h	;3366
-	LD	HL,04200h	;3369
-	CALL	0463ch		;336c
+	LD	HL,SECBUF	;3369
+	CALL	WRITDS		;336c
 	EX	DE,HL		;336f
 	LD	HL,l33deh	;3370
 	LD	BC,00020h	;3373
 	LDIR			;3376
 	LD	DE,00008h	;3378
-	LD	HL,04200h	;337b
-	CALL	0463ch		;337e
+	LD	HL,SECBUF	;337b
+	CALL	WRITDS		;337e
 	CALL	sub_32d0h	;3381
 	LD	B,006h		;3384
 	INC	DE		;3386
 	CALL	l32c9h		;3387
 l338ah:
-	CALL	04630h		;338a
+	CALL	READS		;338a
 	CP	014h		;338d
 	JP	Z,l3399h	;338f
 	OR	A		;3392
-	CALL	NZ,04640h	;3393
+	CALL	NZ,WRITES	;3393
 	INC	DE		;3396
 	JR	l338ah		;3397
 l3399h:
 	LD	HL,l339fh	;3399
-	JP	04405h		;339c
+	JP	DOSCMD		;339c
 
-; --- data from here on: message text and disk-format parameter blocks,
-; not code. z80dasm disassembles it anyway (it has no way to tell) --
-; the RST 38h runs and nonsense LD sequences below are what that produces
-; from data bytes, not real instructions ever executed as such.
+; --- data from here to the end of the record at 33FDh. Not code: the RST 38h
+; runs and nonsense LD sequences a linear disassembler produces here come from
+; data bytes that are never executed.
 
+; The DOS command MEMDISK hands to DOSCMD at 339Ch once the RAM disk is built.
 l339fh:
-	DEFB	068h,063h,064h,020h	;339f-33a2 ('h','c','d',' ') --
-					;patched at 33a3h by 304ah above to
-					;become the drive-number digit
+	DEFB	044h,049h,052h,020h,034h,00dh	;339f  DIR 4.
+					;33a3 is the drive digit, written by
+					;304Ah from the floppy-count-derived number
+
+; Three bytes LDIR'd into SECBUF at 3301h.
 l33a5h:
-	DEFB	000h,001h,0d4h		;33a5
+	DEFB	000h,0feh,001h	;33a5  ...
+
+; 34 bytes copied to SECBUF+0cbh at 3344h: the RAM disk's own directory header --
+; 47h 8Ch is the master password, then the disk name, then the date field
+; that TIME fills in at 332Fh (l33b5h) and 3335h/3338h blank to spaces first.
 l33a8h:
-	DEFB	0d4h,000h,000h,041h,043h,04ch,04ch,04ch	;33a8
-	DEFB	04ch,04ch,04ch,04ch,04ch,020h,072h,065h	;33b0
+	DEFB	052h,000h,000h,047h,08ch,04dh,045h,04dh	;33a8  R..G.MEM
+	DEFB	044h,049h,053h,04bh,020h	;33b0  DISK
+l33b5h:
+	DEFB	020h,020h,020h,020h,020h	;33b5
 l33bah:
-	DEFB	020h,020h,020h,020h,065h,073h,074h,065h	;33ba
-	DEFB	06eh,074h,020h,067h,065h,062h,065h,06eh	;33c2
-	DEFB	06fh,074h,069h,067h,074h,000h,0e6h,061h	;33ca
-	DEFB	06eh,067h,065h,06eh,020h,0f2h,064h,020h	;33d2
-l33d6h:
-	DEFB	0ffh,0ffh			;33d6
-l33d8h:
-	DEFB	0ffh,0ffh			;33d8
-l33dah:
-	DEFB	0ffh,0ffh			;33da
-l33dch:
-	DEFB	0ffh,0ffh			;33dc
+	DEFB	020h,020h,020h,00dh	;33ba     .
+
+; Two 32-byte directory entries, written to the new disk at 3364h and 3376h:
+; GDOS/SYS and INHALT/SYS.
+l33beh:
+	DEFB	05eh,000h,000h,000h,000h,047h,044h,04fh	;33be  ^....GDO
+	DEFB	053h,020h,020h,020h,020h,053h,059h,053h	;33c6  S    SYS
+	DEFB	060h,07fh,01fh,0b2h,005h,000h,000h,000h	;33ce  `.......
+	DEFB	0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh	;33d6  ........
 l33deh:
-	DEFB	06ch,000h,000h,000h,063h,063h,064h,062h	;33de
-	DEFB	063h,048h,065h,064h,064h,073h,020h,020h	;33e6
-	DEFB	020h,048h,067h,065h,077h,064h,062h,073h	;33ee
-	DEFB	077h,065h,063h,000h,073h,076h,0f6h,00ah	;33f6
-	DEFB	000h,001h,0ffh,000h	;33fe -- but the file ends at 33fdh;
-					;this last DEFB is one byte short of
-					;its own nominal 4, harmless (past the
-					;end of the extracted range)
+	DEFB	05dh,000h,000h,000h,000h,049h,04eh,048h	;33de  ]....INH
+	DEFB	041h,04ch,054h,020h,020h,053h,059h,053h	;33e6  ALT  SYS
+	DEFB	0a7h,01dh,0f9h,0e2h,00ah,000h,001h,001h	;33ee  ........
+	DEFB	0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh,0ffh	;33f6  ........
 
-	ENDING	EQU	$
-
-; --- separate load record, 5200h-5242h -- reached from 3011h above
-; ("MEMDISK N"). Uninstall: DRVSEL(0) (a trivial, always-succeeding probe
-; per stock DRVSEL's own A<1 fast path -- see the own trace of
-; 4776h in sys0-sys-disassembly.asm), bank-switch, decrement dndrv,
-; restore dtabh from a backup at 37d7h. Read but not traced
-; instruction-by-instruction.
+; --- separate load record, 5200h-5242h, reached from 3011h ("MEMDISK N").
+; Uninstall: DRVSEL(0) -- always succeeds, via stock DRVSEL's A<1 fast path
+; -- then bank-switch, decrement DNDRV, and restore DTABH from the backup
+; copy at DTABH+1.
 
 	ORG	5200h
 
@@ -722,14 +728,14 @@ l33deh:
 	AND	03eh		;521d
 	OR	040h		;521f
 	OUT	(0f9h),A	;5221
-	LD	HL,0439fh	;5223  dndrv
+	LD	HL,DNDRV	;5223
 	DEC	(HL)		;5226
-	LD	HL,036ffh	;5227  dbanks
+	LD	HL,DBANKS	;5227
 	LD	A,C		;522a
 	AND	(HL)		;522b
 	LD	(HL),A		;522c
-	LD	HL,037d7h	;522d
-	LD	DE,037d6h	;5230  dtabh
+	LD	HL,DTABH+1	;522d
+	LD	DE,DTABH	;5230
 	LD	BC,00009h	;5233
 	LDIR			;5236
 l5238h:
@@ -737,5 +743,5 @@ l5238h:
 	AND	03eh		;523a
 	OR	040h		;523c
 	OUT	(0f9h),A	;523e
-	JP	0402dh		;5240  DOSRDY, per Grosser's own DOSERR
+	JP	DOSRDY		;5240  DOSRDY, per Grosser's own DOSERR
 				;comment ("...ein Sprung nach DOSRDY (402DH)")

@@ -17,12 +17,10 @@
 ;
 ;   z80dasm -g 0x4d00 -l -a -t sys1_flat.bin
 ;
-; each line in the right-hand column. Verified by assembling this file with
-; pasmo and comparing the result with the module byte for byte.
-; Rewritten from that z80dasm output into readable assembly: every address
-; of z80dasm's lNNNNh/sub_NNNNh and the module address of each line on the
-; right. Verified by assembling this file with pasmo and comparing the result
-; with the module byte for byte.
+; Rewritten from that z80dasm output into readable assembly: names in place
+; of z80dasm's lNNNNh/sub_NNNNh, and the module address of each line in the
+; right-hand column. Verified by assembling this file with pasmo and
+; comparing the result with the module byte for byte.
 ;
 ; Parts of every module are data -- message strings and tables -- that
 ; z80dasm decodes as instructions, because it walks the bytes in order

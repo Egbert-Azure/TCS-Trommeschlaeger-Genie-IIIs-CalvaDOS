@@ -17,7 +17,6 @@
 ; inline "mXXXX  OP  operands" labels, and [note] comments for anything read
 ; off the disassembly rather than taken from Grosser.
 ;
-;   python3 trsload.py SYS7.SYS --extract 4D00-51E7 -o sys7_flat.bin
 ;   z80dasm -g 0x4d00 -l -a -t sys7_flat.bin
 ;
 ; Grosser ch.7, "SYS7" row: request code A-E9h, sub-function selected by C
@@ -37,53 +36,43 @@
 ;
 ; [note]   read off the disassembly, not from any prior reference.
 
-m0000	EQU	0000h
-m0005	EQU	0005h
 m001b	EQU	001bh
 m0050	EQU	0050h
-m00fe	EQU	00feh
-m00ff	EQU	00ffh
-m0104	EQU	0104h
-m402d	EQU	402dh
+DOSRDY  EQU	402dh		;return to the DOS prompt
 m4043	EQU	4043h
-m4049	EQU	4049h
-m4063	EQU	4063h
+HIMEM   EQU	4049h		;HIMEM
+HEXDE   EQU	4063h		;write DE as hex ASCII to (HL)
 m414e	EQU	414eh
-m421f	EQU	421fh
+DIRLEN  EQU	421fh		;length of the directory field
 m4296	EQU	4296h
 m42ce	EQU	42ceh
 m42d0	EQU	42d0h
 m42d8	EQU	42d8h
-m436c	EQU	436ch
+DFLAG3  EQU	436ch		;further DOS flags
 m4380	EQU	4380h		;fixed base this module reads via IY; (IY-78h)=4308h is DRVSEL's current-drive cell (see sys0-sys-disassembly.asm, "dsave")
 m43a9	EQU	43a9h
-m4409	EQU	4409h		;DOS ERROR EXIT (Grosser: UP DOSERR)
+DOSERR  EQU	4409h		;DOS error exit
 m4428	EQU	4428h
-m4439	EQU	4439h
+WRITE   EQU	4439h		;write a sector
 m443f	EQU	443fh
-m4467	EQU	4467h
-m4480	EQU	4480h
+DSPLY   EQU	4467h		;display the text at (HL)
+USRFCB  EQU	4480h		;FCB for loading and starting user programs
 m4483	EQU	4483h
 m448a	EQU	448ah
 m44ac	EQU	44ach
 m44e2	EQU	44e2h
-m4776	EQU	4776h
-m47ec	EQU	47ech
-m490a	EQU	490ah
+DRVSEL  EQU	4776h		;select a drive
+DSKTST  EQU	47ech		;select the drive, motor on, test 'disk in ?'
+DIRSEC  EQU	490ah		;read a sector from the directory
 m491f	EQU	491fh
-m4936	EQU	4936h
-m494b	EQU	494bh
-m49d3	EQU	49d3h
+GETFDE  EQU	4936h		;fetch a file's FDE from the directory, second entry
+RDFPDE  EQU	494bh		;load the directory sector holding the FPDE (FCB+7) to 4200h, HL to FPDE+0
+SYSLD   EQU	49d3h		;load a SYS file; exits on error
 m4cb4	EQU	4cb4h
-m4cc5	EQU	4cc5h
-m4cd5	EQU	4cd5h
-m4cd9	EQU	4cd9h
+STRCMP  EQU	4cc5h		;compare the strings at (HL) and (BC)
+CHKCHR  EQU	4cd5h		;test the character at (HL)
+CHKSEP  EQU	4cd9h		;check for a comma or a blank
 m51e8	EQU	51e8h
-m554e	EQU	554eh
-me506	EQU	0e506h
-me908	EQU	0e908h
-mff00	EQU	0ff00h
-mffff	EQU	0ffffh
 	ORG	4D00H
 	LD	IY,m4380
 	CP	0E9H
@@ -128,18 +117,18 @@ m4d3a	LD	A,B
 	JR	m4d5e
 m4d50	LD	A,20H
 	JR	m4d5e
-m4d54	CALL	m4cd5
+m4d54	CALL	CHKCHR
 	RET	NC
 m4d58	LD	A,(HL)
 	CP	0DH
 	RET	Z
 m4d5c	LD	A,34H
-m4d5e	JP	m4409
+m4d5e	JP	DOSERR
 m4d61	LD	B,33H		;[note] C=1: "Anfang von DB SYSTEM" (Grosser). B=33h = SYS17's GETSYS module code.
 	JR	m4d6c
 m4d65	LD	B,32H		;[note] C=3: "Anfang von DB PDRIVE" (Grosser). B=32h = SYS16's GETSYS module code.
 	JR	m4d6c
-m4d69	LD	BC,me506
+m4d69	LD	BC,0E506H
 m4d6c	PUSH	BC		;[note] shared SYSTEM/PDRIVE tail -- ends in RST 28h below.
 	CALL	m4e89
 	POP	BC
@@ -149,13 +138,13 @@ m4d6c	PUSH	BC		;[note] shared SYSTEM/PDRIVE tail -- ends in RST 28h below.
 m4d76	LD	A,(HL)
 	CP	0DH
 	JR	NZ,m4d8c
-	LD	DE,(m4049)
+	LD	DE,(HIMEM)
 	LD	HL,m51e8
 	PUSH	HL
-	CALL	m4063
+	CALL	HEXDE
 m4d86	LD	(HL),0DH
 	POP	HL
-	JP	m4467
+	JP	DSPLY
 m4d8c	CALL	m4f9e
 	CALL	m4d58
 	LD	A,D
@@ -167,7 +156,7 @@ m4d8c	CALL	m4f9e
 	ADD	HL,DE
 	JR	C,m4da2
 	EX	DE,HL
-m4da2	LD	(m4049),HL
+m4da2	LD	(HIMEM),HL
 	XOR	A
 	RET
 m4da7	DI
@@ -203,10 +192,10 @@ m4dd0	LD	A,2FH
 	JR	m4d5e
 m4dd4	EX	DE,HL
 	XOR	A
-	CALL	m4776
+	CALL	DRVSEL
 	RET	NZ
 	XOR	A
-	CALL	m490a
+	CALL	DIRSEC
 	RET	NZ
 	LD	B,20H
 	LD	L,0E0H
@@ -230,7 +219,7 @@ m4df3	POP	AF
 	LD	A,19H
 	RET	NZ
 	PUSH	HL
-	CALL	m494b
+	CALL	RDFPDE
 	JP	NZ,m4d5e
 	EX	(SP),HL
 m4e0a	LD	BC,m504d
@@ -251,12 +240,12 @@ m4e0a	LD	BC,m504d
 	POP	HL
 	JR	m4e4a
 	LD	C,20H
-	LD	DE,mff00
+	LD	DE,0FF00H
 	JR	m4e33
 	LD	C,80H
 	JR	m4e30
 	LD	C,40H
-m4e30	LD	DE,m00ff
+m4e30	LD	DE,00FFH
 m4e33	LD	A,(HL)
 	CP	4AH
 	INC	HL
@@ -334,18 +323,18 @@ m4e9c	PUSH	DE
 	JP	NZ,m4d50
 	LD	A,E
 	POP	DE
-	CALL	m47ec
+	CALL	DSKTST
 	JR	NZ,m4ec2
 	PUSH	HL
 	XOR	A
-	CALL	m490a
+	CALL	DIRSEC
 	JR	NZ,m4ec2
 	LD	HL,(m42ce)
 	OR	A
 	SBC	HL,DE
 	POP	HL
 	RET	Z
-	LD	A,(m436c)
+	LD	A,(DFLAG3)
 	RLCA
 	RET	NC
 	LD	A,37H
@@ -358,7 +347,7 @@ m4ecb	LD	BC,m50c0
 	JR	m4ed9
 	LD	DE,m42d0
 m4ed9	LD	B,8H
-m4edb	CALL	m4cd5
+m4edb	CALL	CHKCHR
 	JR	NC,m4ee4
 	LD	A,(HL)
 	INC	HL
@@ -396,14 +385,14 @@ m4f09	CALL	m4d54
 	JR	NC,m4f21
 	LD	DE,m4296
 m4f21	LD	A,1H
-	CALL	m490a
+	CALL	DIRSEC
 	RET	NZ
-	LD	A,(m421f)
+	LD	A,(DIRLEN)
 	ADD	A,8H
 	LD	(4F66H),A
 	XOR	A
 m4f30	LD	C,A
-	CALL	m4936
+	CALL	GETFDE
 	RET	NZ
 m4f35	LD	A,(HL)
 	AND	90H
@@ -441,7 +430,7 @@ m4f57	LD	A,L
 	JR	C,m4f30
 	XOR	A
 	RET
-m4f6b	CALL	m4cd9
+m4f6b	CALL	CHKSEP
 	RET	NC
 	JR	m4f90
 m4f71	LD	D,2H
@@ -453,7 +442,7 @@ m4f71	LD	D,2H
 	LD	D,A
 	PUSH	DE
 	RET
-m4f7d	CALL	m4cc5
+m4f7d	CALL	STRCMP
 	RET	Z
 m4f81	LD	A,(BC)
 	CP	0H
@@ -467,10 +456,10 @@ m4f88	INC	BC
 	OR	A
 	JR	NZ,m4f7d
 m4f90	JP	m4d5c
-m4f93	CALL	m4cd5
+m4f93	CALL	CHKCHR
 	JR	NZ,m4f9c
 	RET
-m4f99	CALL	m4cd9
+m4f99	CALL	CHKSEP
 m4f9c	JR	C,m4f90
 m4f9e	PUSH	HL
 	LD	B,0H
@@ -491,7 +480,7 @@ m4fb8	BIT	1,B
 	POP	BC
 	RET	NZ
 m4fbc	JP	m4dd0
-m4fbf	LD	DE,m0000
+m4fbf	LD	DE,0000H
 m4fc2	LD	A,(HL)
 	SUB	30H
 	CP	0AH
@@ -554,7 +543,7 @@ m5017	INC	DE
 	DJNZ	m4ff5
 m501c	PUSH	HL
 	EX	DE,HL
-	LD	DE,mffff
+	LD	DE,0FFFFH
 	LD	B,8H
 m5023	PUSH	BC
 	LD	A,E
@@ -694,7 +683,7 @@ m508c	LD	C,E
 	LD	C,H
 	LD	C,H
 	NOP
-	LD	BC,m554e
+	LD	BC,554EH
 	LD	C,H
 	LD	C,H
 	NOP
@@ -753,7 +742,7 @@ m50ed	LD	HL,m4d61
 	EX	(SP),HL
 	EX	DE,HL
 	PUSH	DE
-	LD	DE,m402d
+	LD	DE,DOSRDY
 	CALL	m4f93
 	LD	A,D
 	AND	E
@@ -775,20 +764,20 @@ m50ed	LD	HL,m4d61
 	SBC	HL,BC
 	PUSH	HL
 	JP	C,m4dd0
-	LD	BC,m0005
+	LD	BC,0005H
 	ADD	HL,BC
 	JR	NC,m512c
-	LD	HL,m0104
+	LD	HL,0104H
 	JR	m5131
 m512c	LD	A,0FCH
 	CALL	m4cb4
 m5131	LD	(m448a),HL
-	LD	DE,m4480
-	LD	BC,me908
-	LD	HL,m49d3
+	LD	DE,USRFCB
+	LD	BC,0E908H
+	LD	HL,SYSLD
 	PUSH	BC
 	PUSH	HL
-	JP	m4439
+	JP	WRITE
 m5142	POP	AF
 	CALL	m443f
 	JR	NZ,m5198
@@ -811,11 +800,11 @@ m5142	POP	AF
 	LD	A,H
 	OR	L
 	JR	NZ,m516b
-	LD	BC,m00fe
+	LD	BC,00FEH
 	OR	A
 	SBC	HL,BC
 	JR	m5173
-m516b	LD	BC,m00fe
+m516b	LD	BC,00FEH
 	OR	A
 	SBC	HL,BC
 	JR	C,m5186
@@ -859,15 +848,15 @@ m51ac	LD	A,B
 	CALL	m51d3
 m51b4	PUSH	HL
 	PUSH	DE
-	LD	HL,m0000
+	LD	HL,0000H
 	RST	18H
 	EX	DE,HL
 	JR	C,m51cc
-	LD	DE,m0000
+	LD	DE,0000H
 	RST	18H
 	JR	C,m51cc
 	PUSH	HL
-	LD	HL,m0000
+	LD	HL,0000H
 	OR	A
 	SBC	HL,DE
 	POP	DE

@@ -61,12 +61,12 @@
 ; producing a repeating "'ENTER', wenn ===> Systemdiskette in Laufwerk
 ; Nr. 0".
 ;
-; PATCHED: 5942h, 00h -> 05h (sysvol). Same class of
-; hardcoded-drive-0 site already patched in SYS26/SYS (4EFEh, 4F3Bh) and
-; OVL4/SYS (32ECh), but the first found in a DATA table rather than in a
-; DRVSEL call -- invisible to every pass that read only code. The patch
-; asserts the stock byte is 00h and that both neighbouring slots are still
-; FFh, so a wrong address fails loudly.
+; PATCHED: 5942h, 00h -> 05h (sysvol). Same class of hardcoded-drive-0
+; site already patched in SYS26/SYS (4EFEh, 4F3Bh) and OVL4/SYS (32ECh),
+; but the first found in a DATA table rather than in a DRVSEL call --
+; invisible to every pass that read only code. The patch asserts the stock
+; byte is 00h and that both neighbouring slots are still FFh, so a wrong
+; address fails loudly.
 ;
 
 	org 04d00h

@@ -21,12 +21,10 @@
 ;
 ;   z80dasm -g 0x4d00 -l -a -t sys29_flat.bin
 ;
-; each line in the right-hand column. Verified by assembling this file with
-; pasmo and comparing the result with the module byte for byte.
-; Rewritten from that z80dasm output into readable assembly: every address
-; of z80dasm's lNNNNh/sub_NNNNh and the module address of each line on the
-; right. Verified by assembling this file with pasmo and comparing the result
-; with the module byte for byte.
+; Rewritten from that z80dasm output into readable assembly: names in place
+; of z80dasm's lNNNNh/sub_NNNNh, and the module address of each line in the
+; right-hand column. Verified by assembling this file with pasmo and
+; comparing the result with the module byte for byte.
 ;
 ; Parts of every module are data -- message strings and tables -- that
 ; z80dasm decodes as instructions, because it walks the bytes in order
@@ -52,7 +50,7 @@ m4029   EQU     4029h
 HIMEM   EQU     4049h		;HIMEM
 HEXDE   EQU     4063h		;write DE as hex ASCII to (HL)
 HEXA    EQU     4068h		;write A as hex ASCII to (HL)
-m4307   EQU     4307h
+DMACH   EQU	4307h		;machine type; 04h is the Genie IIIs
 PDRV0   EQU     4371h		;start of the PDRIVE parameters for drive 0
 DNDRV   EQU     439fh		;number of drives
 m4402   EQU     4402h
@@ -80,7 +78,7 @@ m51a2   EQU     51a2h		;operand byte inside this module -- self-modified code
         ORG     4d00h
         PUSH    AF                      ;4d00
         PUSH    HL                      ;4d01
-        LD      A,(m4307)               ;4d02
+        LD      A,(DMACH)               ;4d02
         AND     0FH                     ;4d05
         CP      02H                     ;4d07
         JR      C,m4d21                 ;4d09
@@ -205,7 +203,7 @@ m4de1   LD      DE,(KBDDRV)             ;4de1
         LD      A,(m4028)               ;4e1a
         LD      HL,m51a2                ;4e1d
         CALL    HEXA                    ;4e20
-        LD      A,(m4307)               ;4e23
+        LD      A,(DMACH)               ;4e23
         AND     0FH                     ;4e26
         CP      02H                     ;4e28
         JR      Z,m4e32                 ;4e2a

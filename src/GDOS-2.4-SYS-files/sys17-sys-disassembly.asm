@@ -13,8 +13,9 @@
 ;************************************************************************
 ;
 ; Format follows SYS8-sys-disassembly.asm -- see sys7-sys-disassembly.asm's
-; header for what that means and for the same regeneration command
-; (trsload.py --extract 4D00-51E7, then one z80dasm pass) used here.
+; header for what that means.
+;
+;   z80dasm -g 0x4d00 -l -a -t sys17_flat.bin
 ;
 ; Grosser ch.7, "SYS17" row: request codes 33h ("DB SYSTEM, der Anfang
 ; steht in SYS7"), 53h (DB WRDIRP), F3h (Genie-only GAT extension for
@@ -24,39 +25,33 @@
 ;
 ; [note]   read off the disassembly, not from any prior reference.
 
-m0000	EQU	0000h
-m0010	EQU	0010h
-m0033	EQU	0033h
-m0400	EQU	0400h
-m4063	EQU	4063h
-m4200	EQU	4200h
+ROMCHR  EQU	0033h		;ROM: put character A on the screen
+HEXDE   EQU	4063h		;write DE as hex ASCII to (HL)
+SECBUF  EQU	4200h		;DOS sector buffer
 m4205	EQU	4205h
 m4216	EQU	4216h
-m421f	EQU	421fh
-m42a0	EQU	42a0h
+DIRLEN  EQU	421fh		;length of the directory field
+DNFLOP  EQU	42a0h		;number of floppy drives
 m42ce	EQU	42ceh
 m42d0	EQU	42d0h
 m42f0	EQU	42f0h
 m430f	EQU	430fh
-m436d	EQU	436dh
-m4409	EQU	4409h		;DOS ERROR EXIT
-m4436	EQU	4436h		;SYS0-resident jump stub -> JP 49FCh (READDV, floppy-path config-sector read)
-m443c	EQU	443ch
+DFLAG4  EQU	436dh		;further DOS flags
+DOSERR  EQU	4409h		;DOS error exit
+READ    EQU	4436h		;read a sector
+VERIFY  EQU	443ch		;verify a sector
 m491f	EQU	491fh
-m4c92	EQU	4c92h
-m4c94	EQU	4c94h
-m4cb3	EQU	4cb3h
+MULHL   EQU	4c92h		;HL * A
+MULOV   EQU	4c94h		;HL * A, overflow
+DGRAN2  EQU	4cb3h		;sectors per GRAN, second copy
 m4cb4	EQU	4cb4h
-m4cd5	EQU	4cd5h		;shared end-of-parameter/delimiter scanner
-m54cb	EQU	54cbh
+CHKCHR  EQU	4cd5h		;test the character at (HL)
 m552d	EQU	552dh
 m5535	EQU	5535h
 m56f9	EQU	56f9h
 m5762	EQU	5762h
 m5784	EQU	5784h
 m5981	EQU	5981h
-m5983	EQU	5983h
-m598b	EQU	598bh
 m5994	EQU	5994h
 m59b8	EQU	59b8h
 m59bc	EQU	59bch
@@ -75,9 +70,9 @@ m59d1	EQU	59d1h
 	LD	A,B		;[note] B here is (4308h)'s value, carried in via SYS7's RST 28h call -- not a raw typed digit. See sys7-sys-disassembly.asm.
 	LD	(m4f1c),A
 	CALL	m4e21
-	CALL	m4436		;[note] SYS0-resident stub -> JP 49FCh (READDV). Reads a sector using whatever drive# is currently in (4308h). The same call site this port patches at SYS0/SYS:50C4h.
+	CALL	READ		;[note] SYS0-resident stub -> JP 49FCh (READDV). Reads a sector using whatever drive# is currently in (4308h). The same call site this port patches at SYS0/SYS:50C4h.
 	RET	NZ
-	CALL	m4cd5		;[note] shared end-of-parameter/delimiter scanner (4cd5h). Its error path, and this file's own local one a few lines below, both return A=034h -- presumably the DOS error code behind "schlechte Parameter".
+	CALL	CHKCHR		;[note] shared end-of-parameter/delimiter scanner (4cd5h). Its error path, and this file's own local one a few lines below, both return A=034h -- presumably the DOS error code behind "schlechte Parameter".
 	RET	C
 	JP	Z,m4dc0
 m4d1e	LD	A,(HL)
@@ -146,7 +141,7 @@ m4d82	PUSH	BC
 	AND	1FH
 	PUSH	HL
 	PUSH	DE
-	LD	HL,m42a0
+	LD	HL,DNFLOP
 	LD	E,A
 	LD	D,0H
 	ADD	HL,DE
@@ -165,20 +160,20 @@ m4da1	LD	(HL),E
 	OR	A
 	JR	NZ,m4d7f
 m4da6	POP	HL
-	CALL	m4cd5
+	CALL	CHKCHR
 	RET	C
 	JP	NZ,m4d1e
-	LD	HL,m42a0
+	LD	HL,DNFLOP
 	LD	A,(HL)
 	DEC	A
 	CP	4H
 	JR	C,m4db9
 	LD	(HL),1H
 m4db9	CALL	m4e21
-	CALL	m443c
+	CALL	VERIFY
 	RET	NZ
 m4dc0	LD	HL,m4f24
-	LD	DE,m0000
+	LD	DE,0000H
 	LD	B,0DH
 	JR	m4e13
 m4dca	LD	A,B
@@ -237,7 +232,7 @@ m4e21	LD	A,2H		;[note] an earlier unflattened decode misread this call site as R
 	RET
 m4e2a	AND	1FH
 	LD	E,A
-	LD	HL,m42a0
+	LD	HL,DNFLOP
 	ADD	HL,DE
 	BIT	6,B
 	JR	Z,m4e3b
@@ -254,7 +249,7 @@ m4e3b	LD	E,(HL)
 	POP	DE
 	LD	HL,4F11H
 	PUSH	HL
-	CALL	m4063
+	CALL	HEXDE
 	POP	HL
 	LD	B,4H
 	LD	A,(HL)
@@ -277,7 +272,7 @@ m4e62	LD	A,(HL)
 	JR	m4e0c
 m4e6b	PUSH	DE
 	PUSH	AF
-	CALL	m0033
+	CALL	ROMCHR
 	POP	AF
 	POP	DE
 	RET
@@ -289,7 +284,7 @@ m4e7b	LD	A,D
 	LD	A,E
 	RET	Z
 m4e7f	LD	A,2FH
-m4e81	JP	m4409
+m4e81	JP	DOSERR
 m4e84	PUSH	HL
 	CALL	m4ea7
 	LD	A,(HL)
@@ -312,7 +307,7 @@ m4ea2	PUSH	HL
 	LD	DE,m4e9c
 	PUSH	DE
 m4ea7	LD	B,0H
-m4ea9	LD	DE,m0000
+m4ea9	LD	DE,0000H
 m4eac	LD	A,(HL)
 	SUB	30H
 	CP	0AH
@@ -350,7 +345,7 @@ m4ed0	ADC	A,A
 	RET	NZ
 	INC	HL
 	JR	m4eac
-m4ede	LD	BC,m0400
+m4ede	LD	BC,0400H
 	LD	HL,m4f08
 m4ee4	PUSH	BC
 	LD	C,(HL)
@@ -449,18 +444,18 @@ m4f46	ADD	A,L
 	RST	38H
 	RST	38H
 	RST	38H
-m4f5d	LD	A,(m436d)
+m4f5d	LD	A,(DFLAG4)
 	BIT	4,A
 	LD	A,37H
 	JR	Z,m4fc8
 	CALL	m4e73
 	LD	(m5014),A
-	CALL	m4cd5
+	CALL	CHKCHR
 	RET	NZ
 	LD	DE,m500e
-	CALL	m4436
+	CALL	READ
 	RET	NZ
-	LD	HL,m4200
+	LD	HL,SECBUF
 	LD	A,(HL)
 	OR	A
 	JR	NZ,m4fc6
@@ -471,16 +466,16 @@ m4f5d	LD	A,(m436d)
 	INC	HL
 	CALL	m50c0
 	PUSH	HL
-	CALL	m4c92
+	CALL	MULHL
 	LD	A,(m430f)
-	CALL	m4c94
+	CALL	MULOV
 	POP	DE
 	PUSH	HL
 	PUSH	DE
 	INC	HL
 	LD	(m5018),HL
 	CALL	m4fcb
-	LD	A,(m421f)
+	LD	A,(DIRLEN)
 	ADD	A,0AH
 	LD	H,A
 	EX	(SP),HL
@@ -504,13 +499,13 @@ m4fb5	LD	(m5018),HL
 m4fc6	LD	A,2CH
 m4fc8	JP	m4e81
 m4fcb	LD	DE,m500e
-	CALL	m4436
+	CALL	READ
 	RET	Z
 	CP	6H
 	JR	NZ,m4fc8
 	RET
 m4fd7	CALL	m4fcb
-	LD	A,(m4200)
+	LD	A,(SECBUF)
 	AND	50H
 	CP	50H
 	JR	NZ,m4fc6
@@ -580,11 +575,11 @@ m5047	BIT	5,B
 	LD	(m42ce),HL
 m5051	LD	A,C
 	AND	0CH
-	LD	BC,m0010
+	LD	BC,0010H
 	LD	DE,m42d0
-	LD	HL,m5983
+	LD	HL,5983H
 	JR	NZ,m5066
-	LD	HL,m598b
+	LD	HL,598BH
 	LD	E,0D8H
 	LD	C,8H
 m5066	LDIR
@@ -637,7 +632,7 @@ m50bc	NOP
 	NOP
 	NOP
 m50c0	LD	L,(HL)
-	LD	A,(m4cb3)
+	LD	A,(DGRAN2)
 m50c4	RET
 	NOP
 	NOP

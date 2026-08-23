@@ -1,22 +1,58 @@
-; /docs/reference/sys0-sys-disassembly.asm
-; SYS0/SYS module 0, from DMK/G3S-GDOS24.DMK, carrying this port's own SYS0
+;************************************************************************
+;
+; SYS0/SYS from G-DOS 2.4
+;
+;
+; Disassembled and commented by
+; E.H. Schroeer
+;
+; Name: sys0-sys-disassembly.asm
+;
+; Date: 2026/08/18
+;
+;************************************************************************
+;
+; Not all of this file is this project's own work. Who wrote what:
+;
+;   Hartmut Grosser, Das DOS-Buch fuer TRS-80, Genie und Colour Genie,
+;   chapter 3 -- the routine boxes (Name/Funktion/Input/Veraendert/
+;   Output), the German prose under some of them, and every trailing
+;   comment carrying no prefix. His words, transliterated to ASCII.
+;   His book documents GDOS 2.1c; this build is GDOS 2.4, so where the
+;   two differ a [note] says so.
+;
+;   E.H. Schroeer -- the disassembly itself, its annotation, and the
+;   placement of Grosser's boxes against this build's own addresses.
+;
+;   This project -- the [PATCH] and [note] boxes.
+;
+;************************************************************************
+;
+; SYS0/SYS module 0, from DMK/G3S-GDOS24.DMK, carrying this port's own
 ; patches. Not every one of them: the byte column does not reflect the
-; AUTO-command patches at 4EF9h/4F0Dh or the drive-0 read at 50C4h, and the
-; boot-banner block at 4FABh-504Dh is string data that this listing
+; AUTO-command patches at 4EF9h/4F0Dh or the drive-0 read at 50C4h, and
+; the boot-banner block at 4FABh-504Dh is string data that this listing
 ; disassembles as though it were code.
 ;
-; Trailing comments with no prefix quote Hartmut Grosser, Das DOS-Buch fuer
-; TRS-80, Genie und Colour Genie, verbatim (German) -- ch.3 (base NEWDOS/80
-; SYS0/SYS listing) unless stated otherwise. Grosser's book documents GDOS
-; 2.1c; this build is GDOS 2.4.
-; [PATCH]  a patch: stock GDOS 2.4 byte vs. this build.
-; [note]   not from Grosser -- either a finding here, or a place GDOS 2.4
-;          diverges from Grosser's 2.1c (his ch.9.4.2).
+; Boxed annotations sit above the line they describe:
 ;
-; Unannotated lines are z80dasm output, unedited.
-
+;   [PATCH]  a departure from stock GDOS 2.4, with the stock bytes,
+;            this build's bytes and the reason for the change.
+;   [note]   not from Grosser -- either a finding here, or a place
+;            GDOS 2.4 diverges from his 2.1c (his ch.9.4.2).
+;   Name:    a routine, as Grosser documents it in ch.3.
+;
+; A line with no box and no trailing comment is the disassembly as it
+; came out, unedited -- including the DEFB at 43B7h, which is how an
+; undocumented opcode is rendered. 442Bh is the one hand-made line, a
+; data byte split out of a mis-decoded instruction; its [note] says so.
 ; 3200h-32FBh -- overlay open (OVL4/SYS:5)
-3200  3e 40     ld a,040h  ; [note] bank-switch trampoline: OUT F9h,A / EI / pop-triple / RET. 3209h: push-triple / OUT F9h,A / DI / JP F00Ah.
+; ------------------------------------------------------------
+; [note]      3200h: bank-switch trampoline. OUT F9h,A / EI /
+;             pop-triple / RET. At 3209h the other way: push-
+;             triple / OUT F9h,A / DI / JP F00Ah.
+; ------------------------------------------------------------
+3200  3e 40     ld a,040h
 3202  d3 f9     out (0f9h),a
 3204  fb        ei
 3205  c1        pop bc
@@ -30,7 +66,12 @@
 320E  f3        di
 320F  d3 f9     out (0f9h),a
 3211  c3 0a f0  jp 0f00ah
-3214  3a 07 43  ld a,(04307h)  ; [note] writes (4307h) OR 30h over the 'x' at 3278h. Genie IIIs value: '4' -- OVL4/SYS. 3220h tests the result against 004h.
+; ------------------------------------------------------------
+; [note]      3214h: writes (4307h) OR 30h over the 'x' at
+;             3278h. On a Genie IIIs that is '4', so OVL4/SYS.
+;             3220h tests the result against 004h.
+; ------------------------------------------------------------
+3214  3a 07 43  ld a,(04307h)
 3217  f6 30     or 030h
 3219  32 78 32  ld (l3278h),a
 321C  e6 0f     and 00fh
@@ -75,12 +116,28 @@
 3275  4f        ld c,a
 3276  56        ld d,(hl)
 3277  4c        ld c,h
-3278  78        ld a,b  ; [note] 'x' in the on-disk template "OVLx/SYS:0" (3275h='O',3276h='V',3277h='L',3278h='x'). Overwritten at runtime by 3214h.
+; ------------------------------------------------------------
+; [note]      3278h: the 'x' in the on-disk template
+;             "OVLx/SYS:0" -- 3275h='O', 3276h='V', 3277h='L',
+;             3278h='x'. Overwritten at runtime by 3214h.
+; ------------------------------------------------------------
+3278  78        ld a,b
 3279  2f        cpl
 327A  53        ld d,e
 327B  59        ld e,c
 327C  53        ld d,e
-327D  3a 35 0d  ld a,(00d35h)  ; [PATCH] 327Dh-327Fh: three data bytes (':' + drive digit + CR), disassembled below as a bogus "ld a,(0D35h)". 327Eh: STOCK 30h (ASCII '0'). THIS BUILD: 35h (ASCII '5').
+; ------------------------------------------------------------
+; [PATCH]     327Eh
+; Stock:      30h   ASCII '0'
+; This build: 35h   ASCII '5'
+; Reason:     The drive digit in the on-disk template
+;             "OVLx/SYS:0" at 3275h, so every overlay open
+;             targets the boot volume instead of a floppy.
+;             327Dh-327Fh are three data bytes -- ':' + digit
+;             + CR -- that a linear disassembler renders as a
+;             bogus "ld a,(0D35h)".
+; ------------------------------------------------------------
+327D  3a 35 0d  ld a,(00d35h)
 3280  00        nop
 3281  00        nop
 3282  00        nop
@@ -213,6 +270,17 @@
 
 ; 402Dh-4035h
 402D  c3 00 44  jp 04400h
+; ------------------------------------------------------------
+; Name:       ERRORO
+; Funktion:   nach einem Fehler: Sprung nach DOS READY
+; Input:      --
+; Veraendert: --
+; Output:     --
+; ------------------------------------------------------------
+; Programme, die mit einem bereits angezeigten Fehler beendet werden,
+; sollten mit einem Sprung nach ERRORO aufhoeren. Von dort geht es
+; dann genau wie bei DOSRDY (402DH) weiter, ein evtl. CHAINING wird
+; jedoch abgebrochen.
 4030  3e 43     ld a,043h
 4032  ef        rst 28h
 4033  c3 db 4a  jp 04adbh
@@ -242,8 +310,15 @@
 407F  00        nop
 
 ; 4308h-4317h -- drive-select bookkeeping
-4308  00        nop  ; [note] ddrive. 4306h (dsave) is DRVSEL's redirected write target, kept in sync by gdisp.
-4309  00        nop  ; [note] drive bit-mask.
+; ------------------------------------------------------------
+; [note]      4308h: ddrive. 4306h (dsave) is DRVSEL's
+;             redirected write target, kept in sync by gdisp.
+; ------------------------------------------------------------
+4308  00        nop
+; ------------------------------------------------------------
+; [note]      4309h: drive bit-mask.
+; ------------------------------------------------------------
+4309  00        nop
 430A  11 23 03  ld de,00323h
 430D  23        inc hl
 430E  0a        ld a,(bc)
@@ -251,7 +326,13 @@
 4310  00        nop
 4311  00        nop
 4312  c3 b0 45  jp 045b0h
-4315  01 00 00  ld bc,00000h  ; [note] 4315h-4317h: three data bytes, disassembled below as a bogus "ld bc,0000h". 4317h: "aktuelles /SYS-Modul" [current /SYS module]: "00: kein /SYS-Modul verfuegbar" (00h: none available), "03: SYS1 verfuegbar ... 1F: SYS29 verfuegbar" (03h: SYS1 ... 1Fh: SYS29).
+; ------------------------------------------------------------
+; [note]      4315h: 4315h-4317h are three data bytes,
+;             rendered below as a bogus "ld bc,0000h". 4317h
+;             is the "aktuelles /SYS-Modul": 00h none
+;             available, 03h SYS1 ... 1Fh SYS29.
+; ------------------------------------------------------------
+4315  01 00 00  ld bc,00000h
 
 ; 4368h-43A8h
 4368  a5        and l
@@ -327,7 +408,11 @@
 43A7  0d        dec c
 43A8  0d        dec c
 ; 43B2h-43DFh -- shared FCB fields
-43B2  00        nop  ; [note] dfcbdv2 (43D4h) and dfcbdec (43D5h) fall in this range.
+; ------------------------------------------------------------
+; [note]      43B2h: dfcbdv2 (43D4h) and dfcbdec (43D5h) fall
+;             in this range.
+; ------------------------------------------------------------
+43B2  00        nop
 43B3  00        nop
 43B4  00        nop
 43B5  ff        rst 38h
@@ -359,8 +444,17 @@
 43D1  00        nop
 43D2  42        ld b,d
 43D3  00        nop
-43D4  00        nop  ; [note] dfcbdv2 -- runtime write. Cold: 00h. ginit writes sysvol (05h) once at boot.
-43D5  ff        rst 38h  ; [note] dfcbdec -- runtime write. Cold: FFh. rdecfix (4495h) rewrites it on every GETSYS call.
+; ------------------------------------------------------------
+; [note]      43D4h: dfcbdv2, written at runtime. Cold: 00h.
+;             ginit writes sysvol (05h) once at boot.
+; ------------------------------------------------------------
+43D4  00        nop
+; ------------------------------------------------------------
+; [note]      43D5h: dfcbdec, written at runtime. Cold: FFh.
+;             rdecfix (4495h) rewrites it on every GETSYS
+;             call.
+; ------------------------------------------------------------
+43D5  ff        rst 38h
 43D6  00        nop
 43D7  00        nop
 43D8  00        nop
@@ -377,18 +471,91 @@
 4402  ef        rst 28h
 4403  00        nop
 4404  00        nop
+; ------------------------------------------------------------
+; Name:       DOSCMD
+; Funktion:   DOS-Befehl (HL) ausfuehren (ohne Rueckkehr)
+; Input:      HL: zeigt auf einen DOS-Befehl, der mit 0DH
+;             abgeschlossen sein muss
+; Veraendert: --
+; Output:     --
+; ------------------------------------------------------------
+; Der DOS-Befehl, auf den HL zeigt, wird (unter Umwandlung von
+; Kleinbuchstaben in Grossbuchstaben) in den Input-Buffer des DOS
+; (4318-4367) uebertragen und ausgefuehrt. Anschliessend kehrt DOSCMD
+; jedoch nicht zum Aufrufer zurueck, sondern springt nach DOSRDY
+; (402DH).
+;
+; ACHTUNG! Vor Aufruf von DOSCMD darf bei 4318H keinesfalls 0DH
+; stehen, sonst passiert gar nichts!
 4405  3e 63     ld a,063h
 4407  ef        rst 28h
 4408  c8        ret z
+; ------------------------------------------------------------
+; Name:       DOSERR
+; Funktion:   Fehlermeldung (A) ausgeben
+; Input:      A: Fehlercode -- Bit 7: Rueckkehr (J/N)
+; Veraendert: F
+; Output:     --
+; ------------------------------------------------------------
+; Wenn Bit 7 im A-Register gesetzt ist, wird die entsprechende
+; Fehlermeldung ausgegeben und DOSERR kehrt zum Aufrufer zurueck. Wenn
+; Bit 7 nicht gesetzt ist: ein aktives CHAINING wird abgebrochen; bei
+; aktivem DOS-CALL (4419H) wird der Aufruf beendet und der Fehlercode
+; an dessen Aufrufer uebergeben, ohne Meldung; sonst wird die Meldung
+; ausgegeben und nach DOSRDY (402DH) gesprungen.
 4409  f5        push af
 440A  3e 26     ld a,026h
 440C  ef        rst 28h
+; ------------------------------------------------------------
+; Name:       DEBUG
+; Funktion:   DEBUG aufrufen
+; Input:      --
+; Veraendert: --
+; Output:     --
+; ------------------------------------------------------------
 440D  c3 09 46  jp l4609h
+; ------------------------------------------------------------
+; Name:       INTINS
+; Funktion:   Benutzer-Interrupt-Routine einfuegen
+; Input:      DE: Zeiger auf Kontroll-Block der Benutzer-
+;             Interrupt-Routine
+; Veraendert: AF, BC, DE, HL
+; Output:     --
+; ------------------------------------------------------------
 4410  3e 65     ld a,065h
 4412  ef        rst 28h
+; ------------------------------------------------------------
+; Name:       INTDEL
+; Funktion:   Benutzer-Interrupt-Routine loeschen
+; Input:      DE: Zeiger auf Kontroll-Block der Benutzer-
+;             Interrupt-Routine
+; Veraendert: AF, BC, DE, HL
+; Output:     --
+; ------------------------------------------------------------
 4413  3e 85     ld a,085h
 4415  ef        rst 28h
+; ------------------------------------------------------------
+; Name:       MOTONX
+; Funktion:   Drive-Motoren weiterlaufen lassen
+; Input:      --
+; Veraendert: AF
+; Output:     --
+; ------------------------------------------------------------
+; Falls die Motoren der Drives noch an sind, dann wird durch erneuten
+; Drive-Select dafuer gesorgt, dass die Motoren weiterlaufen.
 4416  c3 62 47  jp l4762h
+; ------------------------------------------------------------
+; Name:       DOSCAL
+; Funktion:   DOS-Befehl (HL) ausfuehren und zurueck
+; Input:      HL: zeigt auf einen DOS-Befehl, der mit 0DH
+;             abgeschlossen sein muss
+; Veraendert: --
+; Output:     AF: Fehler-Status (siehe Text)
+; ------------------------------------------------------------
+; Wie DOSCMD, aber mit Rueckkehr zum Aufrufer. Im AF-Register wird ein
+; Fehler-Status uebergeben: C=1 -- ein bereits angezeigter Fehler ist
+; aufgetreten; C=0 und Z=0 -- ein Fehler ist aufgetreten und sein Code
+; steht in A.
 4419  3e c3     ld a,0c3h
 441B  ef        rst 28h
 441C  3e 83     ld a,083h
@@ -402,9 +569,32 @@
 4427  82        add a,d
 4428  3e 25     ld a,025h
 442A  ef        rst 28h
-442B  01 3e 45  ld bc,l453eh
+; ------------------------------------------------------------
+; [note]      442Bh: a filler byte, like 4423h and 4427h. A linear
+;             disassembler reads it as the start of a LD BC and
+;             swallows KILL's opcode at 442Ch, so it is split out
+;             here.
+; ------------------------------------------------------------
+442B  01        defb 001h
+; ------------------------------------------------------------
+; Name:       KILL
+; Funktion:   File loeschen
+; Input:      DE: zeigt auf geoeffneten FCB
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
+442C  3e 45     ld a,045h
 442E  ef        rst 28h
 442F  00        nop
+; ------------------------------------------------------------
+; Name:       LOAD
+; Funktion:   Programm laden
+; Input:      DE: zeigt auf FCB, der Filespec enthaelt
+; Veraendert: BC
+; Output:     AF: A=Fehlercode, wenn Z=0
+;             HL: Startadresse des Programms
+;             4403H,4404H: Startadresse des Programms
+; ------------------------------------------------------------
 4430  3e a4     ld a,0a4h
 4432  ef        rst 28h
 4433  3e c4     ld a,0c4h
@@ -413,10 +603,54 @@
 4439  c3 36 4a  jp l4a36h
 443C  c3 32 4a  jp l4a32h
 443F  c3 4c 4b  jp l4b4ch
+; ------------------------------------------------------------
+; Name:       POSBC
+; Funktion:   NEXT-Feld im FCB auf die in BC angegebene
+;             Logische Record# positionieren
+; Input:      DE: zeigt auf geoeffneten FCB
+;             BC: gewuenschte Logische Record#
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 4442  c3 73 4b  jp l4b73h
+; ------------------------------------------------------------
+; Name:       POSDEC
+; Funktion:   NEXT-Feld im FCB um 1 Logische Record#
+;             decrementieren (-1)
+; Input:      DE: zeigt auf geoeffneten FCB
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 4445  c3 62 4b  jp l4b62h
+; ------------------------------------------------------------
+; Name:       POSEOF
+; Funktion:   NEXT-Feld im FCB auf EOF (End of File)
+;             positionieren
+; Input:      DE: zeigt auf geoeffneten FCB
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 4448  c3 54 4b  jp l4b54h
+; ------------------------------------------------------------
+; Name:       EXPAND
+; Funktion:   Wenn die File kuerzer ist, als das NEXT-Feld im
+;             FCB angibt, wird die File um entsprechend viele
+;             GRANS erweitert
+; Input:      DE: zeigt auf geoeffneten FCB
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 444B  c3 09 48  jp l4809h
+; ------------------------------------------------------------
+; Name:       POSRBA
+; Funktion:   NEXT-Feld im FCB so positionieren, wie in HL und
+;             C im RBA-Format angegeben ist
+; Input:      DE: zeigt auf geoeffneten FCB
+;             HL: 1. und 2. Byte fuer NEXT-Feld
+;             C:  3. Byte fuer NEXT-Feld
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 444E  c3 47 4b  jp l4b47h
 4451  3e c5     ld a,0c5h
 4453  ef        rst 28h
@@ -429,12 +663,59 @@
 445E  c3 ec 47  jp l47ech
 4461  3e 2b     ld a,02bh
 4463  ef        rst 28h
+; ------------------------------------------------------------
+; Name:       USRDEL
+; Funktion:   Benutzer-Routine loeschen
+; Input:      HL: zeigt auf Kontroll-Block der Benutzer-
+;             Routine
+; Veraendert: HL, DE, BC
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 4464  3e 4b     ld a,04bh
 4466  ef        rst 28h
+; ------------------------------------------------------------
+; Name:       TEXTTV
+; Funktion:   Text (HL) auf Bildschirm ausgeben
+; Input:      HL: zeigt auf Text, Ende = 03H oder 0DH
+; Veraendert: AF
+; Output:     --
+; ------------------------------------------------------------
 4467  c3 a6 4b  jp l4ba6h
+; ------------------------------------------------------------
+; Name:       TEXTLP
+; Funktion:   Text (HL) auf Drucker ausgeben
+; Input:      HL: zeigt auf Text, Ende = 03H oder 0DH
+; Veraendert: AF
+; Output:     --
+; ------------------------------------------------------------
 446A  c3 bc 4b  jp l4bbch
+; ------------------------------------------------------------
+; Name:       TIME
+; Funktion:   aktuelle Uhrzeit im Buffer (HL) im Format
+;             HH:MM:SS ablegen
+; Input:      HL: zeigt auf 8-Byte Buffer
+; Veraendert: HL=HL+8, DE, BC, AF
+; Output:     --
+; ------------------------------------------------------------
 446D  c3 a7 44  jp l44a7h
+; ------------------------------------------------------------
+; Name:       DATE
+; Funktion:   aktuelles Datum im Buffer (HL) im Format
+;             MM/TT/JJ ablegen
+; Input:      HL: zeigt auf 8-Byte Buffer
+; Veraendert: HL=HL+8, DE, BC, AF
+; Output:     --
+; ------------------------------------------------------------
 4470  c3 c2 44  jp l44c2h
+; ------------------------------------------------------------
+; Name:       INSEXT
+; Funktion:   Wenn Filespec (DE) keinen File-Typ enthaelt,
+;             wird File-Typ (HL) eingesetzt
+; Input:      DE: zeigt auf Filespec
+;             HL: zeigt auf 3-Byte File-Typ
+; Veraendert: HL, AF
+; Output:     --
+; ------------------------------------------------------------
 4473  3e a3     ld a,0a3h
 4475  ef        rst 28h
 4476  00        nop
@@ -481,6 +762,9 @@
 44A1  00        nop
 44A2  28 01     jr z,$+3
 44A4  21 35 3c  ld hl,03c35h
+; ------------------------------------------------------------
+; TIME (Fortsetzung von 446DH) -- Kasten dort.
+; ------------------------------------------------------------
 44A7  11 43 40  ld de,04043h
 44AA  06 3a     ld b,03ah
 44AC  0e 03     ld c,003h
@@ -499,8 +783,16 @@
 44BE  70        ld (hl),b
 44BF  23        inc hl
 44C0  18 ec     jr l44aeh
+; ------------------------------------------------------------
+; DATE (Fortsetzung von 4470H) -- Kasten dort.
+; ------------------------------------------------------------
 44C2  11 46 40  ld de,04046h
-44C5  06 2e     ld b,02eh  ; Trennzeichen fuer Datum (ch.3/Model I: 2Fh "/". ch.9.4.2/Genie IIIs: 2Eh "." -- this build has the Genie IIIs value.)
+; ------------------------------------------------------------
+; [note]      44C5h: ch.3 (Model I) has 2Fh "/". ch.9.4.2
+;             gives 2Eh "." for the Genie IIIs, and this build
+;             has the Genie IIIs value.
+; ------------------------------------------------------------
+44C5  06 2e     ld b,02eh  ; Trennzeichen fuer Datum
 44C7  18 e3     jr l44ach
 44C9  eb        ex de,hl
 44CA  44        ld b,h
@@ -510,7 +802,12 @@
 44D1  11 ac 43  ld de,043ach
 44D4  01 06 00  ld bc,00006h
 44D7  ed b0     ldir
-44D9  11 7c 40  ld de,0407ch  ; [note] 44DBh: 16 zero bytes here (ch.9.3, Genie III -- marked changed from the base Model I value).
+; ------------------------------------------------------------
+; [note]      44DBh: 16 zero bytes here. Grosser ch.9.3 marks
+;             them changed from the base Model I value for the
+;             Genie III.
+; ------------------------------------------------------------
+44D9  11 7c 40  ld de,0407ch
 44DC  e1        pop hl
 44DD  06 03     ld b,003h
 44DF  34        inc (hl)
@@ -537,7 +834,12 @@
 44FB  c8        ret z
 44FC  2a 20 40  ld hl,(04020h)
 44FF  be        cp (hl)
-4500  36 5f     ld (hl),05fh  ; Cursorzeichen auf Bildschirm (ch.3/Model I: 8Fh. ch.9.4.2/Genie IIIs: 5Fh -- this build has the Genie IIIs value.)
+; ------------------------------------------------------------
+; [note]      4500h: ch.3 (Model I) has 8Fh. ch.9.4.2 gives
+;             5Fh for the Genie IIIs, and this build has the
+;             Genie IIIs value.
+; ------------------------------------------------------------
+4500  36 5f     ld (hl),05fh  ; Cursorzeichen auf Bildschirm
 4502  c9        ret
 4503  77        ld (hl),a
 4504  c9        ret
@@ -547,7 +849,14 @@
 450B  d6 20     sub 020h
 450D  fe 60     cp 060h
 450F  79        ld a,c
-4510  da 7d 04  jp c,0047dh  ; [note] this build: DA 7D 04 (JP C,047Dh), matching ch.3's own Model I value at this address (Seite 3-20). ch.9.4.2 marks the low byte changed to 7Bh for Genie IIIs; this build does not show that value.
+; ------------------------------------------------------------
+; [note]      4510h: this build has DA 7D 04 (JP C,047Dh),
+;             which is ch.3's Model I value at this address
+;             (Seite 3-20). ch.9.4.2 marks the low byte
+;             changed to 7Bh for the Genie IIIs; this build
+;             does not show that.
+; ------------------------------------------------------------
+4510  da 7d 04  jp c,0047dh
 4513  c3 58 04  jp 00458h
 4516  3a 69 43  ld a,(04369h)
 4519  ee 20     xor 020h
@@ -726,6 +1035,15 @@
 4637  cd 30 46  call sub_4630h
 463A  e1        pop hl
 463B  c9        ret
+; ------------------------------------------------------------
+; Name:       WRITDS
+; Funktion:   schreibt einen Sector des Directory auf Diskette
+; Input:      DE: gewuenschte Sector# (Disk-relativ)
+;             HL: Zeiger auf zu benutzenden Buffer
+;             (4308H): gewuenschte Drive# (0-3)
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 463C  3e a9     ld a,0a9h
 463E  18 02     jr l4642h
 4640  3e a8     ld a,0a8h
@@ -892,27 +1210,49 @@
 4757  38 05     jr c,l475eh
 4759  cd 67 47  call sub_4767h
 475C  18 f2     jr l4750h
+; ------------------------------------------------------------
+; Name:       FBREAK
+; Funktion:   FORCE-INTERRUPT-Kommando an FDC senden und
+;             warten, bis FDC nicht mehr busy ist
+; Input:      --
+; Veraendert: AF
+; Output:     --
+; ------------------------------------------------------------
 475E  3e d0     ld a,0d0h
 4760  18 eb     jr l474dh
+; ------------------------------------------------------------
+; MOTONX (Fortsetzung von 4416H) -- Kasten dort.
+; ------------------------------------------------------------
 4762  3a ec 37  ld a,(037ech)  ; laufen die Drive-Motoren noch?
 4765  07        rlca
 4766  d8        ret c
-4767  3a 09 43  ld a,(04309h)  ; Name: MOTON. Funktion: Drive-Motoren starten. Input: --. Veraendert: A. Output: --.
+; ------------------------------------------------------------
+; Name:       MOTON
+; Funktion:   Drive-Motoren starten
+; Input:      --
+; Veraendert: A
+; Output:     --
+; ------------------------------------------------------------
+4767  3a 09 43  ld a,(04309h)
 476A  32 e1 37  ld (037e1h),a
 476D  c9        ret
+; ------------------------------------------------------------
+; DRVSLX -- wie DRVSEL, aber die Drive# kommt aus (IX+6).
+; Faellt bei 4771h nach DRVSEL durch.
+; ------------------------------------------------------------
+476E  dd 7e 06  ld a,(ix+006h)
+4771  18 03     jr l4776h
+4773  3a 08 43  ld a,(04308h)
 ; ------------------------------------------------------------
 ; Name:       DRVSEL (Fortsetzung von 445BH)
 ; Funktion:   Drive (A) auswaehlen und Motor starten
 ; Input:      A: gewuenschte Drive# (0-3)
 ; Veraendert: --
 ; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 ; Das gewuenschte Laufwerk wird als 'aktuelles Laufwerk' bei 4308H
 ; vermerkt, sein Bit-Muster wird nach 4309H sowie seine
 ; PDRIVE-Parameter nach 430AH-4311H uebertragen.
-; ------------------------------------------------------------
-476E  dd 7e 06  ld a,(ix+006h)
-4771  18 03     jr l4776h
-4773  3a 08 43  ld a,(04308h)
 4776  e5        push hl
 4777  d5        push de
 4778  c5        push bc
@@ -980,11 +1320,30 @@
 47E0  e1        pop hl
 47E1  b7        or a
 47E2  c9        ret
+; ------------------------------------------------------------
+; Name:       DELAY1
+; Funktion:   ca. 55 us warten (bei 1.774 MHz) und Status-
+;             Register des FDC lesen
+; Input:      --
+; Veraendert: F
+; Output:     A: Status des FDC
+; ------------------------------------------------------------
 47E3  3e 0c     ld a,00ch
 47E5  3d        dec a
 47E6  20 fd     jr nz,l47e5h
 47E8  3a ec 37  ld a,(037ech)
 47EB  c9        ret
+; ------------------------------------------------------------
+; Name:       DSKTST (Fortsetzung von 445EH; bei Grosser TSTDSK)
+; Funktion:   Drive (A) auswaehlen, Motor starten und testen,
+;             ob Diskette eingelegt
+; Input:      A: gewuenschte Drive# (0-3)
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
+; Es wird DRVSEL (445BH) aufgerufen und, wenn dabei kein Fehler
+; auftrat, anschliessend geprueft, ob sich eine drehende Diskette im
+; Laufwerk befindet.
 47EC  cd 76 47  call l4776h
 47EF  c0        ret nz
 47F0  e5        push hl
@@ -1003,27 +1362,26 @@
 4803  20 f5     jr nz,l47fah
 4805  3e 08     ld a,008h
 4807  18 d5     jr l47deh
+; ------------------------------------------------------------
+; EXPAND (Fortsetzung von 444BH) -- Kasten dort.
+; ------------------------------------------------------------
 4809  cd 80 49  call sub_4980h
 480C  cd b7 49  call sub_49b7h
 480F  af        xor a
-; ******************************************************
-;  Name: FILPOS
-; 
-;  Funktion: Berechnet die physikalische Position des#
-;  Sectors, auf den das NEXT-Feld zeigt #
-;  Input: IX: zeigt auf geöffneten FCB #
-;  IY: muß auf 4380H zeigen #
-; 
-;  A: 00: File darf erweitert werden
-;  B6 : File darf nicht erweitert werden*
-;  vorher: Call PUSHR (4980H)! #
-;  Verändert: BC
-; 
-;  Output:
-;  AF: A=Fehlercode, wenn Z=0
-;  DE: gesuchte Sector# (Disk-relativ)
-;  HL: zeigt auf Buffer der File
-; ******************************************************
+; ------------------------------------------------------------
+; Name:       FILPOS
+; Funktion:   berechnet die physikalische Position des Sectors, auf
+;             den das NEXT-Feld zeigt
+; Input:      IX: zeigt auf geoeffneten FCB
+;             IY: muss auf 4380H zeigen
+;             A:  00: File darf erweitert werden
+;                 B6: File darf nicht erweitert werden
+;             vorher: Call PUSHR (4980H)!
+; Veraendert: BC
+; Output:     AF: A=Fehlercode, wenn Z=0
+;             DE: gesuchte Sector# (Disk-relativ)
+;             HL: zeigt auf Buffer der File
+; ------------------------------------------------------------
 ; FILPOS berechnet, wo derjenige Sector einer File, auf den das NEXT-Feld
 ; zeigt, letztendlich auf Diskette steht. Falls die File kürzer ist, als das
 ; NEXT-Feld angibt, wird sie dabei - sofern das erlaubt ist - um entsprechend viele GRANS erweitert.
@@ -1037,39 +1395,6 @@
 ; erreicht wurde. In letztem Fall wird - sofern die File erweitert werden
 ; darf - nun SYS2/SYS damit beauftragt, freie GRANS zu suchen und für diese
 ; File zu belegen.
-; ******************************************************
-; Name: FILPOS
-;
-; Function: Calculates the physical position of the
-; sector pointed to by the NEXT field
-; Input: IX: points to an open FCB
-; IY: must point to 4380H
-;
-; A: 00: File may be extended
-; B6: File may not be extended
-; Prerequisite: Call PUSHR (4980H)!
-; Modified: BC
-;
-; Output:
-; AF: A=error code if Z=0
-; DE: target sector # (disk-relative)
-; HL: points to file buffer
-; ******************************************************
-; FILPOS calculates the actual location on the diskette of the file sector
-; pointed to by the NEXT field. If the file is shorter than the NEXT field
-; indicates, the file is extended by the necessary number of GRANS—
-; provided this is permitted.
-; Before calling FILPOS, PUSHR (4980H) must be called so that, in the event
-; of an error, the emergency exit via 49CDH functions correctly!
-; FILPOS operation: First, the 4 data blocks defined in FCB+0E through
-; FCB+15H are checked to see if they contain the target sector. If not,
-; the 4 extension data blocks defined in FCB+16H through FCB+1F are checked.
-; If these also do not contain the target sector, all FDEs for this file
-; are read from the directory and checked sequentially until information
-; regarding the target sector is found or the end of the file is reached.
-; In the latter case—provided file extension is permitted—SYS2/SYS is
-; tasked with finding free GRANS and allocating them to this file.
-; ******************************************************
 4810  32 bb 48  ld (048bbh),a
 4813  cd 6e 47  call sub_476eh
 4816  20 5a     jr nz,l4872h
@@ -1227,6 +1552,16 @@
 4905  f6 31     or 031h
 4907  fe 06     cp 006h
 4909  c9        ret
+; ------------------------------------------------------------
+; Name:       DIRR
+; Funktion:   liest einen Sector des Directory
+; Input:      A: gewuenschte Sector# (DIR-relativ)
+;             (4308H): gewuenschte Drive# (0-3)
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+;             HL: 4200H (Buffer fuer DIR-Sectoren)
+;             (4930H): gelesene Sector# (DIR-relativ)
+; ------------------------------------------------------------
 490A  d5        push de
 490B  c5        push bc
 490C  cd fd 48  call sub_48fdh
@@ -1238,6 +1573,15 @@
 491C  c1        pop bc
 491D  d1        pop de
 491E  c9        ret
+; ------------------------------------------------------------
+; Name:       DIRW
+; Funktion:   schreibt einen Sector des Directory
+; Input:      (4930H): gewuenschte Sector# (DIR-relativ)
+;             (4308H): gewuenschte Drive# (0-3)
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+;             HL: 4200H (Buffer fuer DIR-Sectoren)
+; ------------------------------------------------------------
 491F  3a 30 49  ld a,(sub_492fh+1)
 4922  d5        push de
 4923  c5        push bc
@@ -1281,7 +1625,11 @@
 4953  c6 16     add a,016h
 4955  6f        ld l,a
 4956  dd 7e 0e  ld a,(ix+00eh)
-4959  be        cp (hl)  ; [note] dfcbdec (43D5h) read, set by rdecfix (4495h) via the 4BF0h patch.
+; ------------------------------------------------------------
+; [note]      4959h: reads dfcbdec (43D5h), which rdecfix
+;             (4495h) sets via the 4BF0h patch.
+; ------------------------------------------------------------
+4959  be        cp (hl)
 495A  e1        pop hl
 495B  28 03     jr z,l4960h
 495D  3c        inc a
@@ -1381,6 +1729,15 @@
 49F8  10 ed     djnz l49e7h
 49FA  af        xor a
 49FB  c9        ret
+; ------------------------------------------------------------
+; Name:       READ (Fortsetzung von 4436H)
+; Funktion:   naechsten Sector/Record einer File lesen
+; Input:      DE: zeigt auf geoeffneten FCB
+;             HL: zeigt auf Record-Buffer (nur wenn Logische
+;             Recordlaenge <> 256D ist)
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 49FC  cd 80 49  call sub_4980h
 49FF  37        scf
 4A00  cd de 49  call sub_49deh
@@ -1403,6 +1760,16 @@
 4A29  dd cb 01 ae res 5,(ix+001h)
 4A2D  dd cb 01 a6 res 4,(ix+001h)
 4A31  c9        ret
+; ------------------------------------------------------------
+; Name:       VERIFY (Fortsetzung von 443CH)
+; Funktion:   naechsten Sector/Record einer File auf Diskette
+;             schreiben, anschliessend Verify
+; Input:      DE: zeigt auf geoeffneten FCB
+;             HL: zeigt auf Record-Buffer (nur wenn Logische
+;             Recordlaenge <> 256D ist)
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 4A32  3e f6     ld a,0f6h
 4A34  18 02     jr l4a38h
 4A36  3e e6     ld a,0e6h
@@ -1446,6 +1813,14 @@
 4A94  c0        ret nz
 4A95  af        xor a
 4A96  18 95     jr l4a2dh
+; ------------------------------------------------------------
+; Name:       WRITEB (Fortsetzung von 001BH)
+; Funktion:   naechstes Byte in eine File schreiben
+; Input:      DE: zeigt auf geoeffneten FCB
+;             A:  zu schreibendes Byte
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 4A98  28 12     jr z,l4aach
 4A9A  c5        push bc
 4A9B  cd 0c 48  call sub_480ch
@@ -1461,9 +1836,34 @@
 4AB0  dd cb 01 e6 set 4,(ix+001h)
 4AB4  28 8b     jr z,l4a41h
 4AB6  18 94     jr l4a4ch
+; ------------------------------------------------------------
+; Name:       WRITXV
+; Funktion:   schreibt einen normalen Sector oder einen Sector
+;             des Directory auf Diskette, anschliessend Verify
+;             (optional)
+; Input:      DE: gewuenschte Sector# (Disk-relativ)
+;             HL: Zeiger auf zu benutzenden Buffer
+;             A:  Verify nur durchfuehren, wenn A <> 00
+;             F:  normaler (Z=1) oder DIR-Sector (Z=0)
+;             (4308H): gewuenschte Drive# (0-3)
+; Veraendert: BC
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 4AB8  4f        ld c,a
 4AB9  06 03     ld b,003h
 4ABB  20 0d     jr nz,l4acah
+; ------------------------------------------------------------
+; Name:       WRITEV
+; Funktion:   schreibt einen normalen Sector auf Diskette,
+;             anschliessend Verify (optional)
+; Input:      DE: gewuenschte Sector# (Disk-relativ)
+;             HL: Zeiger auf zu benutzenden Buffer
+;             C:  Verify nur durchfuehren, wenn C <> 00
+;             B:  max. Anzahl Verify-Versuche
+;             (4308H): gewuenschte Drive# (0-3)
+; Veraendert: B
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 4ABD  cd 40 46  call sub_4640h
 4AC0  c0        ret nz
 4AC1  79        ld a,c
@@ -1472,18 +1872,18 @@
 4AC6  c8        ret z
 4AC7  10 f4     djnz l4abdh
 4AC9  c9        ret
-; ******************************************************
-; Name: WRITDV                                         *
-;  Funktion: schreibt einen Sector des Directory auf   *
-;  Diskette, anschließend Verify (optional)            *
-;  Input: DE: gewünschte Sector# (Disk-relativ)        *
-;  HL: Zeiger auf zu benutzenden Buffer                *
-;  C: Verify nur durchführen, wenn C O 00              *
-;  B: max. Anzahl Verify-Versuche                      *
-;  (4308H): gewünschte Drive# (0-3)                    *
-;  Verändert: B                                        *
-;  Output: AF: A=Fehlercode, wenn Z-0                  *
-********************************************************
+; ------------------------------------------------------------
+; Name:       WRITDV
+; Funktion:   schreibt einen Sector des Directory auf Diskette,
+;             anschliessend Verify (optional)
+; Input:      DE: gewuenschte Sector# (Disk-relativ)
+;             HL: Zeiger auf zu benutzenden Buffer
+;             C:  Verify nur durchfuehren, wenn C <> 00
+;             B:  max. Anzahl Verify-Versuche
+;             (4308H): gewuenschte Drive# (0-3)
+; Veraendert: B
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 ; WRITDV schreibt einen physikalischen Sector mit dem Data Adress Mark für
 ; Directory-Sectoren auf Diskette. DE gibt an, um den wievielten Sector
 ; innerhalb der Diskette (beginnend ab 0) es sich dabei handelt. Zuvor muß
@@ -1492,25 +1892,6 @@
 ; Wenn Register C <> 00 ist, wird der Sector nach dem Schreiben getestet, ob
 ; er auch ohne Fehler lesbar ist. Wenn nein, wird das Schreiben und anschl.
 ; Testen so oft wiederholt, wie Register B angibt.
-; ******************************************************
-; Name: WRITDV                                         *
-; Function: Writes a directory sector to diskette,    *
-; followed by verification (optional)       *
-; Input: DE: Desired sector number (disk-relative)    *
-; HL: Pointer to buffer to be used                    *
-; C: Perform verification only if C <> 00             *
-; B: Max. number of verification attempts             *
-; (4308H): Desired drive number (0-3)                 *
-; Modified: B                                         *
-; Output: AF: A = error code if Z=0                   *
-********************************************************
-; WRITDV writes a physical sector to diskette using the Data Address Mark
-; for directory sectors. DE specifies the sector number within the diskette
-; (starting at 0). The desired drive number must first be set at 4308H,
-; e.g., via DRVSEL (445BH) or TSTDSK (445EH).
-; If register C <> 00, the sector is tested after writing to ensure it can
-; be read without errors. If not, the write and subsequent test operations
-; are repeated the number of times specified in register B.
 4ACA  cd 3c 46  call sub_463ch  ; Sector schreiben
 4ACD  c0        ret nz
 4ACE  79        ld a,c
@@ -1531,6 +1912,14 @@
 4AEB  fe 02     cp 002h
 4AED  dd cb 01 6e bit 5,(ix+001h)
 4AF1  30 a5     jr nc,l4a98h
+; ------------------------------------------------------------
+; Name:       READB (Fortsetzung von 0013H)
+; Funktion:   naechstes Byte aus einer File lesen
+; Input:      DE: zeigt auf geoeffneten FCB
+; Veraendert: --
+; Output:     AF: wenn Z=1: A = naechstes Byte
+;                 wenn Z=0: A = Fehlercode
+; ------------------------------------------------------------
 4AF3  c4 19 4a  call nz,sub_4a19h
 4AF6  c0        ret nz
 4AF7  cd c4 49  call sub_49c4h
@@ -1590,18 +1979,35 @@
 4B43  b7        or a
 4B44  28 d1     jr z,l4b17h
 4B46  c9        ret
+; ------------------------------------------------------------
+; POSRBA (Fortsetzung von 444EH) -- Kasten dort.
+; ------------------------------------------------------------
 4B47  cd 80 49  call sub_4980h
 4B4A  18 34     jr l4b80h
+; ------------------------------------------------------------
+; Name:       POSO (Fortsetzung von 443FH)
+; Funktion:   NEXT-Feld im FCB auf Beginn der File
+;             positionieren
+; Input:      DE: zeigt auf geoeffneten FCB
+; Veraendert: --
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
 4B4C  cd 80 49  call sub_4980h
 4B4F  67        ld h,a
 4B50  6f        ld l,a
 4B51  4f        ld c,a
 4B52  18 3c     jr l4b90h
+; ------------------------------------------------------------
+; POSEOF (Fortsetzung von 4448H) -- Kasten dort.
+; ------------------------------------------------------------
 4B54  cd 80 49  call sub_4980h
 4B57  dd 4e 08  ld c,(ix+008h)
 4B5A  dd 6e 0c  ld l,(ix+00ch)
 4B5D  dd 66 0d  ld h,(ix+00dh)
 4B60  18 22     jr l4b84h
+; ------------------------------------------------------------
+; POSDEC (Fortsetzung von 4445H) -- Kasten dort.
+; ------------------------------------------------------------
 4B62  cd 80 49  call sub_4980h
 4B65  cd 68 49  call sub_4968h
 4B68  af        xor a
@@ -1611,6 +2017,9 @@
 4B6E  38 31     jr c,l4ba1h
 4B70  2b        dec hl
 4B71  18 1d     jr l4b90h
+; ------------------------------------------------------------
+; POSBC (Fortsetzung von 4442H) -- Kasten dort.
+; ------------------------------------------------------------
 4B73  cd 80 49  call sub_4980h
 4B76  60        ld h,b
 4B77  69        ld l,c
@@ -1637,6 +2046,9 @@
 4BA1  dd 71 05  ld (ix+005h),c
 4BA4  af        xor a
 4BA5  c9        ret
+; ------------------------------------------------------------
+; TEXTTV (Fortsetzung von 4467H) -- Kasten dort.
+; ------------------------------------------------------------
 4BA6  d5        push de
 4BA7  11 1d 40  ld de,0401dh
 4BAA  e5        push hl
@@ -1651,6 +2063,9 @@
 4BB9  e1        pop hl
 4BBA  d1        pop de
 4BBB  c9        ret
+; ------------------------------------------------------------
+; TEXTLP (Fortsetzung von 446AH) -- Kasten dort.
+; ------------------------------------------------------------
 4BBC  d5        push de
 4BBD  11 25 40  ld de,04025h
 4BC0  18 e8     jr l4baah
@@ -1715,6 +2130,17 @@
 ; ******************************************************
 ; 4BC9h-4C27h -- GETSYS
 ; *****************************************************
+; ------------------------------------------------------------
+; Name:       GETSYS
+; Funktion:   SYS-File (A) laden und starten
+; Input:      A: Code fuer SYS-File (siehe Text)
+; Veraendert: HL, DE, BC
+; Output:     AF: A=Fehlercode, wenn Z=0
+; ------------------------------------------------------------
+; Die SYS-File, die durch Register A angegeben ist, wird geladen
+; (falls sie nicht schon im Speicher steht) und gestartet, wobei alle
+; Register unveraendert uebergeben werden. Das Format des Registers A
+; ist xxxbbsss.
 4BC9  e5        push hl
 4BCA  d5        push de
 4BCB  c5        push bc
@@ -1728,11 +2154,11 @@
 4BDA  21 17 43  ld hl,04317h ; Load HL with the address 4317h — pointer to the most recently loaded SYS file.
 4BDD  be        cp (hl)      ; Compare A with the byte at (HL) — is the required SYS file already in memory?
 4BDE  28 38     jr z,l4c18h  ; wenn der benoetigte SYS-File bereits im Speicher steht
-; [note] The 28 39/JR Z,4C19 reading once here was wrong -- checked against
-; the raw bytes in DMK/G3S-GDOS24.DMK (tools/dmk.py --extract SYS0/SYS) at
-; this file offset: 43 be 28 38 77 ..., confirming 28 38 / JR Z,4C18h, not
-; 28 39/4C19h. 28 39 does occur for real at 4AE1h a few lines up in this
-; same file -- likely where the wrong reading got copied from.
+; ------------------------------------------------------------
+; [note]      4BDEh: the bytes here are 43 be 28 38 77, so
+;             this is JR Z,4C18h. The similar 28 39 / JR
+;             Z,4C19h does occur, but at 4AE1h.
+; ------------------------------------------------------------
 4BE0  77        ld (hl),a
 4BE1  e6 07     and 007h
 4BE3  4f        ld c,a
@@ -1764,12 +2190,18 @@
 ; Fehlerbehandlung
 4C0E  3a 17 43  ld a,(04317h)  ; sollte SYS4/SYS
 4C11  fe 06     cp 006h  ; geladen werden ?
-4C13  00 00     nop / nop  ; [PATCH] STOCK 28 FE (JR Z,4C13h): "wenn ja:
-                           ; Endlosschleife". NOP/NOP keeps the same footprint
-                           ; and falls through to 4C15h's own error-code step
-                           ; and then the normal path. An unconditional
-                           ; JR 4C18h would skip that step for EVERY module's
-                           ; load failure, not just SYS4/SYS's.
+; ------------------------------------------------------------
+; [PATCH]     4C13h
+; Stock:      28 FE   JR Z,4C13h -- "wenn ja: Endlosschleife"
+; This build: 00 00   NOP / NOP
+; Reason:     Stock hangs forever when SYS4/SYS specifically
+;             fails to load. NOP/NOP keeps the footprint and
+;             falls through to 4C15h's own error-code step and
+;             then the normal path. An unconditional JR 4C18h
+;             would skip that step for every module's load
+;             failure, not just SYS4/SYS's.
+; ------------------------------------------------------------
+4C13  00 00     nop / nop
 4C15  26 2e     ld h,02eh  ; Fehlercode "SYSTEM PROGRAM NOT FOUND"
 4C17  e3        ex (sp),hl  ; in den Stack statt gerettetem AF-Wert
 ; SYS-File starten
@@ -1853,6 +2285,15 @@
 4C8E  21 00 42  ld hl,04200h
 4C91  c9        ret
 4C92  26 00     ld h,000h
+; ------------------------------------------------------------
+; Name:       MULOV (bei Grosser MULTHL)
+; Funktion:   Multipliziere HL * A
+; Input:      HL: 1. Faktor (falsche Ergebnisse ab HL >
+;             8080H!)
+;             A:  2. Faktor
+; Veraendert: F
+; Output:     AHL (Ergebnis = 65536D * A + HL)
+; ------------------------------------------------------------
 4C94  c5        push bc
 4C95  cd 9d 4c  call sub_4c9dh
 4C98  7c        ld a,h
@@ -1874,6 +2315,15 @@
 4CB0  d1        pop de
 4CB1  c9        ret
 4CB2  3e 05     ld a,005h
+; ------------------------------------------------------------
+; Name:       DIVA
+; Funktion:   Dividiere HL / A
+; Input:      HL: Dividend
+;             A:  Divisor
+; Veraendert: C=Divisor, B=00
+; Output:     HL: Quotient = INT(HL/A)
+;             AF: A = Rest, wenn Z=0
+; ------------------------------------------------------------
 4CB4  4f        ld c,a
 4CB5  06 10     ld b,010h
 4CB7  af        xor a
@@ -1900,9 +2350,25 @@
 4CD0  28 f4     jr z,l4cc6h
 4CD2  e1        pop hl
 4CD3  18 14     jr l4ce9h
+; ------------------------------------------------------------
+; Name:       CHKCHR (bei Grosser NEXTC1)
+; Funktion:   naechstes Zeichen von (HL) holen und in
+;             Abhaengigkeit vom Inhalt Flags setzen
+; Input:      HL: Zeiger auf Text (z.B. Input-Buffer)
+; Veraendert: --
+; Output:     HL, AF (siehe Text)
+; ------------------------------------------------------------
 4CD5  7e        ld a,(hl)
 4CD6  fe 0d     cp 00dh
 4CD8  c8        ret z
+; ------------------------------------------------------------
+; Name:       CHKSEP (bei Grosser NEXTC2)
+; Funktion:   naechstes Zeichen von (HL) holen und in
+;             Abhaengigkeit vom Inhalt Flags setzen
+; Input:      HL: Zeiger auf Text (z.B. Input-Buffer)
+; Veraendert: --
+; Output:     HL, AF (siehe Text)
+; ------------------------------------------------------------
 4CD9  7e        ld a,(hl)
 4CDA  fe 2c     cp 02ch
 4CDC  23        inc hl
@@ -1917,11 +2383,23 @@
 4CE9  b7        or a
 4CEA  3e 34     ld a,034h
 4CEC  c9        ret
+; ------------------------------------------------------------
+; Name:       DELAY2
+; Funktion:   ca. B * 3.75 ms warten
+; Input:      B: Zeitfaktor
+; Veraendert: DE, BC, AF
+; Output:     --
+; ------------------------------------------------------------
 4CED  50        ld d,b
 4CEE  1e 01     ld e,001h
 ; UP DELAY2
 4CF0  42        ld b,d  ; B (Zeitfaktor) zurueck [ch.3, Seite 3-57]
-4CF1  cd 60 00  call 00060h  ; Verzoegerung B * 3.75 ms (1.774 MHz) [ch.3 value: CALL 0060h. ch.9.4.2 documents CALL 374Bh for Genie IIIs -- this build has ch.3's value, not the Genie IIIs one.]
+; ------------------------------------------------------------
+; [note]      4CF1h: ch.3 has CALL 0060h. ch.9.4.2 documents
+;             CALL 374Bh for the Genie IIIs; this build has
+;             ch.3's value, not that one.
+; ------------------------------------------------------------
+4CF1  cd 60 00  call 00060h  ; Verzoegerung B * 3.75 ms (1.774 MHz)
 4CF4  1d        dec e  ; schon SYSTEM BJ mal ? [ch.3, Seite 3-57]
 4CF5  20 f9     jr nz,l4cf0h  ; wenn nein [ch.3, Seite 3-57]
 4CF7  c9        ret
@@ -1934,7 +2412,14 @@
 ; Initialisierung von SYS0/SYS [ch.3, Seite 3-57]
 4D00  a5        and l  ; Stackpointer steht auf 41E0h; Kennung von NEWDOS/80 und GDOS
 4D01  ed 56     im 1  ; Interrupts ueber RST 38H
-4D03  cd a8 50  call sub_50a8h  ; [note] CALL 50A8h -- not in Grosser (ch.3 has "LD HL,0FFFFh" here, start of the "Ende des RAM ab FFFFH abwaerts suchen" routine). This build calls a GDOS-2.4-only routine first; see 50A8h below. Model I's own RAM-search resumes at 4D06h either way.
+; ------------------------------------------------------------
+; [note]      4D03h: CALL 50A8h is not in Grosser -- ch.3 has
+;             "LD HL,0FFFFh" here, the start of "Ende des RAM
+;             ab FFFFH abwaerts suchen". This build calls a
+;             GDOS-2.4-only routine first; see 50A8h. The RAM
+;             search resumes at 4D06h either way.
+; ------------------------------------------------------------
+4D03  cd a8 50  call sub_50a8h
 4D06  7e        ld a,(hl)
 4D07  2f        cpl
 4D08  77        ld (hl),a
@@ -1982,19 +2467,29 @@
 ; === same; wrong for this port, which serves drives up to 9. PATCHED as one
 ; === 12-byte block by run-hdboottest.sh -- see that file for the reasoning.
 ; === Bytes below are THIS BUILD's; stock is shown per line.
-4D63  3e 0a     ld a,00ah    ; [PATCH] STOCK 3A A0 42 (LD A,(42A0h)).
-                             ; 0Ah = the drives gpar actually serves.
-4D65  32 9f 43  ld (0439fh),a ; [PATCH] STOCK at 4D66h, moved up 1 byte.
-4D68  3a a0 42  ld a,(042a0h) ; [PATCH] the floppy count, reloaded for 477Ah
-4D6B  32 7a 47  ld (0477ah),a ; [PATCH] STOCK at 4D69h. Unchanged in effect:
-                             ; DRVSEL's CP nn still gets dnflop.
-4D6E  37        scf          ; [PATCH] STOCK 3D FE 04 (DEC A / CP 04h), the
-                             ; 1..4 sanity check on a configuration sector
-                             ; read off a floppy. This boot supplies that
-                             ; sector from gcfg in gdos-omti.asm, where 42A0h
-                             ; is a fixed 04h, so there is nothing left to
-                             ; catch. SCF keeps 4D6Fh's own JR NC below from
-                             ; ever firing.
+; ------------------------------------------------------------
+; [PATCH]     4D63h-4D6Eh
+; Stock:      3A A0 42 32 9F 43 32 7A 47 3D FE 04
+; This build: 3E 0A 32 9F 43 3A A0 42 32 7A 47 37
+; Reason:     Stock takes one configuration byte, 42A0h, and
+;             writes it to two places: 439Fh (the drive count)
+;             and 477Ah (DRVSEL's own CP operand). Right where
+;             every drive is a floppy and the two numbers
+;             agree; wrong here. Split into two independent
+;             values -- 0Ah, the drives gpar serves, into
+;             439Fh, and the floppy count into 477Ah as
+;             before. The dropped DEC A / CP 04h guarded a
+;             configuration sector read off a floppy; this
+;             boot supplies that sector from gcfg, where 42A0h
+;             is a fixed 04h, so nothing is left to catch. SCF
+;             stops 4D6Fh's JR NC from firing. 12 bytes for
+;             12.
+; ------------------------------------------------------------
+4D63  3e 0a     ld a,00ah
+4D65  32 9f 43  ld (0439fh),a
+4D68  3a a0 42  ld a,(042a0h)
+4D6B  32 7a 47  ld (0477ah),a
+4D6E  37        scf
 4D6F  30 60     jr nc,l4dd1h
 4D71  3a a1 42  ld a,(042a1h)
 4D74  32 ba 4a  ld (04abah),a
@@ -2162,7 +2657,13 @@
 4ECC  fb        ei  ; Interrupts erlauben
 
 ; 4ECDh-50A7h
-4ECD  21 ab 4f  ld hl,l4fabh  ; [note] Text "NEWDOS-80 ... Vers. 2.052 ..." auf Bildschirm ausgeben (this build's banner string; ch.9.4.2 documents a CRT-controller-init insert here instead, moving the [Genie] banner print to 4EDBh -- this build has neither the insert nor the move).
+; ------------------------------------------------------------
+; [note]      4ECDh: prints the banner string. ch.9.4.2
+;             documents a CRT-controller-init insert here
+;             instead, which moves the banner print to 4EDBh;
+;             this build has neither the insert nor the move.
+; ------------------------------------------------------------
+4ECD  21 ab 4f  ld hl,l4fabh
 4ED0  cd 67 44  call sub_4467h  ; auf Bildschirm ausgeben
 ; Datum und Uhrzeit abfragen und anzeigen
 4ED3  3a ab 43  ld a,(043abh)  ; pruefen, ob NEWDOS/80 oder GDOS
@@ -2485,31 +2986,65 @@
 50A7  3c        inc a
 
 ; 50A8h-5183h -- GDOS 2.4 own routine, not in Grosser (his book covers GDOS 2.1c). Entered via the CALL at 4D03h, before ch.3's own RAM-search resumes at 4D06h.
-50A8  3a 66 42  ld a,(04266h)  ; [note] selects one of two BC constants on bit 3 of (4266h)
+; ------------------------------------------------------------
+; [note]      50A8h: selects one of two BC constants on bit 3
+;             of (4266h).
+; ------------------------------------------------------------
+50A8  3a 66 42  ld a,(04266h)
 50AB  01 9e de  ld bc,0de9eh
 50AE  cb 5f     bit 3,a
 50B0  20 03     jr nz,l50b5h
 50B2  01 a6 e6  ld bc,0e6a6h
-50B5  78        ld a,b  ; [note] B,C -> (4CFCh)/(46A4h), (4CF9h): self-modifies DELAY2's own operand and the doubled-disk NOP slot at 46A4h
+; ------------------------------------------------------------
+; [note]      50B5h: B and C go to (4CFCh)/(46A4h) and
+;             (4CF9h): self-modifies DELAY2's own operand and
+;             the doubled-disk NOP slot at 46A4h.
+; ------------------------------------------------------------
+50B5  78        ld a,b
 50B6  32 fc 4c  ld (04cfch),a
 50B9  32 a4 46  ld (046a4h),a
 50BC  79        ld a,c
 50BD  32 f9 4c  ld (04cf9h),a
-50C0  21 ff ff  ld hl,0ffffh  ; [note] returns HL=0FFFFh
+; ------------------------------------------------------------
+; [note]      50C0h: returns HL=0FFFFh.
+; ------------------------------------------------------------
+50C0  21 ff ff  ld hl,0ffffh
 50C3  c9        ret
-50C4  af        xor a  ; [PATCH] STOCK: CD 36 44 (CALL 4436h, floppy-path config-sector read). THIS BUILD: AF 00 00 (XOR A / NOP / NOP).
+; ------------------------------------------------------------
+; [PATCH]     50C4h
+; Stock:      CD 36 44   CALL 4436h
+; This build: AF 00 00   XOR A / NOP / NOP
+; Reason:     SYS0's init reads a configuration sector from
+;             drive 0 through the floppy path, four
+;             instructions before the driver that could serve
+;             it is initialised. The driver plants the same
+;             sector at 4200h instead, so the read is
+;             redundant and always reports success.
+; ------------------------------------------------------------
+50C4  af        xor a
 50C5  00        nop
 50C6  00        nop
 50C7  c2 d3 4d  jp nz,l4dd3h
-50CA  3a 3e 3c  ld a,(03c3eh)  ; [note] if (4307h)=004h: CALL 3209h (OVL4/SYS bank-switch out, see 3200h above)
+; ------------------------------------------------------------
+; [note]      50CAh: if (4307h)=004h: CALL 3209h, the OVL4/SYS
+;             bank-switch out. See 3200h.
+; ------------------------------------------------------------
+50CA  3a 3e 3c  ld a,(03c3eh)
 50CD  e6 0f     and 00fh
 50CF  32 07 43  ld (04307h),a
 50D2  fe 04     cp 004h
 50D4  cc 09 32  call z,03209h
-50D7  21 00 33  ld hl,03300h  ; [note] HL=3300h, DE=3, JP sub_4630h
+; ------------------------------------------------------------
+; [note]      50D7h: HL=3300h, DE=3, then JP 4630h.
+; ------------------------------------------------------------
+50D7  21 00 33  ld hl,03300h
 50DA  11 03 00  ld de,00003h
 50DD  c3 30 46  jp sub_4630h
-50E0  3a 07 43  ld a,(04307h)  ; [note] re-reads (4307h) [the /SYS-module byte, see 4315h below] and branches on it
+; ------------------------------------------------------------
+; [note]      50E0h: re-reads (4307h), the /SYS-module byte --
+;             see 4315h -- and branches on it.
+; ------------------------------------------------------------
+50E0  3a 07 43  ld a,(04307h)
 50E3  fe 05     cp 005h
 50E5  20 01     jr nz,l50e8h
 50E7  3d        dec a
@@ -2528,7 +3063,12 @@
 50FE  3e 01     ld a,001h
 5100  32 07 43  ld (04307h),a
 5103  c3 67 44  jp sub_4467h
-5106  3a f9 42  ld a,(042f9h)  ; [note] copies 200h bytes from 4EADh to 3000h, then JP 3214h (overlay-open bank-switch, see 3200h above)
+; ------------------------------------------------------------
+; [note]      5106h: copies 200h bytes from 4EADh to 3000h,
+;             then JP 3214h: the overlay-open bank-switch. See
+;             3200h.
+; ------------------------------------------------------------
+5106  3a f9 42  ld a,(042f9h)
 5109  f5        push af
 510A  e5        push hl
 510B  21 ad 4e  ld hl,l4eadh
