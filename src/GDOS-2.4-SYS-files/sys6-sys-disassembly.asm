@@ -69,13 +69,6 @@
 ; asserts the stock byte is 00h and that both neighbouring slots are still
 ; FFh, so a wrong address fails loudly. Live-confirmed 2026-08-21.
 ;
-; Two theories were built, shipped and DISPROVEN before this one, recorded
-; so they are not retried: (1) ddrvfl (4780h) overwriting dpdrv -- ddrvfl
-; is never reached via this driver's handler-return path, since gstk holds
-; gexit1, not gexit0; (2) dndrv (439Fh), tried at 4 and at 0Ah, neither of
-; which changed anything *here* -- dndrv was separately found to be wrong for
-; its own reasons and corrected to 0Ah on 2026-08-21, in SYS0/SYS's own 4D63h
-; block rather than in the driver.
 ;   z80dasm -g 0x4d00 -l -a -t sys6_flat.bin
 
 
