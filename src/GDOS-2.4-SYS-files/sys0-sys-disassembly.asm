@@ -1,4 +1,3 @@
-; /docs/reference/sys0-sys-disassembly.asm
 ; SYS0/SYS module 0, from DMK/G3S-GDOS24.DMK, carrying this port's own SYS0
 ; patches. Not every one of them: the byte column does not reflect the
 ; AUTO-command patches at 4EF9h/4F0Dh or the drive-0 read at 50C4h, and the
