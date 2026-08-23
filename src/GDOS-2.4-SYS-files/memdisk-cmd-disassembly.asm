@@ -6,6 +6,10 @@
 ; Disassembled and commented by
 ; E.H. Schroeer
 ;
+; Name: memdisk-cmd-disassembly.asm
+;
+; Date: 2026/08/21
+;
 ;************************************************************************
 ;
 ; Not a SYS-file -- a loadable CMD to initilize the RAMDISK on drive 4, five 256-byte-ish load records entry at 3000h:

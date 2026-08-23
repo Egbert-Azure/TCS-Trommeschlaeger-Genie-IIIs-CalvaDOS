@@ -6,6 +6,10 @@
 ; Disassembled and commented by
 ; E.H. Schroeer
 ;
+; Name: sys7-sys-disassembly.asm
+;
+; Date: 2026/08/20
+;
 ;************************************************************************
 ;
 ; Format follows SYS8-sys-disassembly.asm: an EQU table for every address

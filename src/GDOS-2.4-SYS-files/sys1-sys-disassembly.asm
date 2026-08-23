@@ -6,6 +6,10 @@
 ; Disassembled and commented by
 ; E.H. Schroeer
 ;
+; Name: sys1-sys-disassembly.asm
+;
+; Date: 2026/08/20
+;
 ;************************************************************************
 ; SYS1/SYS, stock GDOS 2.4. Loads contiguously into 4D00h-51DFh, no gaps,
 ; entry 4D00h. Grosser ch.7 gives the same extent: "SYS1/SYS -- EOF 4/248,

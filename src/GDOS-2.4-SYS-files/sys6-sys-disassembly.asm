@@ -6,6 +6,10 @@
 ; Disassembled and commented by
 ; E.H. Schroeer
 ;
+; Name: sys6-sys-disassembly.asm
+;
+; Date: 2026/08/21
+;
 ;************************************************************************
 ; SYS6/SYS, stock GDOS 2.4 -- the COPY command (A-48h, C-00h).
 ;
@@ -57,14 +61,12 @@
 ; producing a repeating "'ENTER', wenn ===> Systemdiskette in Laufwerk
 ; Nr. 0".
 ;
-; PATCHED by run-hdboottest.sh: 5942h, 00h -> 05h (sysvol). Same class of
+; PATCHED: 5942h, 00h -> 05h (sysvol). Same class of
 ; hardcoded-drive-0 site already patched in SYS26/SYS (4EFEh, 4F3Bh) and
 ; OVL4/SYS (32ECh), but the first found in a DATA table rather than in a
 ; DRVSEL call -- invisible to every pass that read only code. The patch
 ; asserts the stock byte is 00h and that both neighbouring slots are still
 ; FFh, so a wrong address fails loudly.
-;
-; Two earlier fixes were built and disproven; see known-issues.md.
 ;
 
 	org 04d00h

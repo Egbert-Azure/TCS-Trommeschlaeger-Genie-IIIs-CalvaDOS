@@ -6,6 +6,10 @@
 ; Disassembled and commented by
 ; E.H. Schroeer
 ;
+; Name: sys2-sys-disassembly.asm
+;
+; Date: 2026/08/20
+;
 ;************************************************************************
 ; SYS2/SYS, stock GDOS 2.4. Loads contiguously into 4D00h-51ACh, no gaps,
 ; entry 4D00h. Grosser ch.7 gives the same extent: "SYS2/SYS -- EOF 4/197,

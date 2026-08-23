@@ -5,6 +5,8 @@
 ; Disassembled and commented by
 ; E.H. Schroeer
 ;
+; Name: sys26-sys-disassembly.asm
+;
 ;************************************************************************
 ;
 ; The module GETSYS loads for request code 1Ch (28 decimal; Grosser ch.3,
