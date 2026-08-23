@@ -1,4 +1,5 @@
-<img width="400" height="100" alt="black-logo" src="https://github.com/user-attachments/assets/12af5c46-99aa-420f-a704-6a905b061939" />
+<img width="100" height="25" alt="black-logo" src="https://github.com/user-attachments/assets/12af5c46-99aa-420f-a704-6a905b061939" />
+<img width="745" height="249" alt="Screenshot 2026-08-22 at 5 27 56 PM" src="https://github.com/user-attachments/assets/05e825d3-280d-494a-8a73-8f1f827261d4" />
 
 # CalvaDOS
 
