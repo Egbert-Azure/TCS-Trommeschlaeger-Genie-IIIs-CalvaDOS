@@ -5,10 +5,6 @@
 ; Disassembled and commented by
 ; E.H. Schroeer
 ;
-; Name: sys29-sys-disassembly.asm
-;
-; Date: 2026/08/20
-;
 ;************************************************************************
 ;
 ; Start 4D00h, RAM range 4D00h-51E9h -- from this file's own load records

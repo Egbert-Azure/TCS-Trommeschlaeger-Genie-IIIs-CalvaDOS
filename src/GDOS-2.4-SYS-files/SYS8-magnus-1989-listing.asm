@@ -10,38 +10,7 @@
 ; Datum:08.09.89
 ;
 ;************************************************************************
-; A. Magnus's own 1989 listing, not a disassembly made here -- the z80dasm
-; provenance line that used to sit at this spot was pasted on and was never
-; true of this file.
-;
-; It documents a different build of SYS8/SYS from the one on
-; DMK/G3S-GDOS24.DMK. Measured: this disk's module opens
-; "LD IY,4380h / CP 2Ah" where the listing has eight instructions in
-; between, and none of the listing's strings ('Datum:', 'EOF: log
-; Records:', 'DISK in') appear anywhere in the disk's SYS8/SYS, nor in the
-; SYS8 of either other disk in DMK/. Read it as period reference material
-; for the module, not as a description of the shipped file.
-;
-; tools/verify-disasm.py skips it for that reason. It does assemble, so the
-; round-trip check can be turned on the day a matching disk turns up.
-;
 m1916	EQU	1916h
-m0033	EQU	0033h		;ROM: Zeichen ausgeben
-m0049	EQU	0049h		;ROM: auf Tastendruck warten
-m402d	EQU	402dh		;DOSRDY
-m421f	EQU	421fh		;Länge des DIR-Feldes
-m4296	EQU	4296h
-m42d0	EQU	42d0h		;Diskname im DIR-Sektor
-m430d	EQU	430dh		;Anzahl Tracks
-m4467	EQU	4467h		;Text ab (HL) anzeigen
-m44c5	EQU	44c5h		;Datum in die Kopfzeile
-m47ec	EQU	47ech		;Motor on, Test 'Disk in ?'
-m490a	EQU	490ah		;Sector (A) des Directorys lesen
-m4c94	EQU	4c94h		;HL * A
-m4cb3	EQU	4cb3h		;Sektoren pro Einheit
-m5147	EQU	5147h		;Text 'DISK in 000 ?', in diesem Modul
-m515f	EQU	515fh		;Stelle vor Drive # im Ausgabetext
-m51e8	EQU	51e8h		;Puffer
 m4380	EQU	4380h
 m43a0	EQU	43a0h		;SYSTEM AN (DRIVE # für DIR)
 m4409	EQU	4409h		;DOS ERROR EXIT
@@ -243,9 +212,9 @@ m4e49	INC	HL
 	RLCA			;File bearbeitet ?
 	JR	NC,m4e4f	;nein dann da weiter
 	LD	(HL),'B'	;Bearbeitungs-Flag
-m4e4f	LD	HL,0004h	;4 Byte Distanz
+m4e4f	LD	HL,m0004	;4 Byte Distanz
 	ADD	HL,DE		;HL jetzt auf Byte 5 des FDE (NAME)
-	LD	BC,080dh	;8 Zeichen filename 0D Zeichen gesamt
+	LD	BC,m080d	;8 Zeichen filename 0D Zeichen gesamt
 	CALL	m50c2		;B-Bytes ab (HL) anzeigen, ohne Blank
 	LD	A,(HL)		;nächstes Byte des FDE (EXT)
 	CP	' '
@@ -370,7 +339,7 @@ m4eec	LD	A,H
 	LD	(HL),'/'
 	POP	HL
 	INC	HL
-	LD	BC,0000h
+	LD	BC,m0000
 m4f18	LD	A,(HL)
 	CP	0feh
 	INC	HL
@@ -427,7 +396,7 @@ m4f75	BIT	4,B		;Flag '/' (nur mit EXT) ?
 	JR	Z,m4f95		;nein
 	PUSH	HL
 	PUSH	BC
-	LD	DE,000dh	;Offset zur EXTENSION
+	LD	DE,m000d	;Offset zur EXTENSION
 	ADD	HL,DE		;zu HL dazu
 	LD	DE,m5144	;da steht die EXT vom Aufruf
 	LD	B,03h		;Länge
@@ -512,7 +481,7 @@ m4ff9	LD	A,C		;Drive #
 	XOR	A
 	CALL	m490a		;Sector (A) des Directorys lesen (hier 0)
 	JR	NZ,m5086	;wenn Fehler
-	LD	BC,0000h
+	LD	BC,m0000
 m501c	LD	E,(IY+8fh)	;Grans pro Lump (akt. Drive) (Einh./Block)
 	LD	A,(HL)
 	INC	HL
@@ -536,7 +505,7 @@ m5025	DEC	E
 	CALL	m50f1
 	LD	HL,m42d0	;Diskname im DIR-Sektor
 	LD	DE,m5185	;'DISKNAME'
-	LD	BC,0008h	;Länge
+	LD	BC,m0008	;Länge
 	LDIR			;Namen übertragen
 	LD	DE,m518f	;'TT.MM.JJ'
 	LD	C,08h		;Länge

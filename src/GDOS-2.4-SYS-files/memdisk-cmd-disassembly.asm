@@ -6,10 +6,6 @@
 ; Disassembled and commented by
 ; E.H. Schroeer
 ;
-; Name: memdisk-cmd-disassembly.asm
-;
-; Date: 2026/08/21
-;
 ;************************************************************************
 ;
 ; Not a SYS-file -- a loadable CMD to initilize the RAMDISK on drive 4, five 256-byte-ish load records entry at 3000h:
@@ -143,9 +139,10 @@ l3078h:
 ; dndrv increment, the F9h bit-0 bank-switch (confirmed functionally
 ; inert in this emulator's own trs_memory.c model -- see the
 ; earlier finding), and the collision itself: 360 bytes of MEMDISK's own
-; resident code copied to F400h, squarely inside the OMTI driver's
-; own F000h-F69Bh occupancy before the 2026-08-21 shrink, and inside the
-; relocated gcfg's own old F3D9h-F4D8h slot before the 2026-08-20 move.
+; resident code copied to F400h, squarely inside the OMTI driver's own
+; F000h-F5EAh occupancy. The driver answers this by placing ginit and gcfg
+; -- both finished once the boot ends -- across F3A6h-F585h, so the range
+; MEMDISK overwrites holds no live code by the time it runs.
 
 	LD	A,(0477ah)	;3078  dnflop again
 	LD	B,A		;307b
@@ -378,7 +375,7 @@ l31c3h:
 ; project's driver's ghook/gdrvsl/gxfhk (gdos-omti.asm). Not traced
 ; instruction-by-instruction against those; noted here only
 ; because they are exactly the kind of code the OMTI driver's own gpass fix
-; (2026-08-21) is trying to hand a claimed-but-not-owned drive off to.
+; is trying to hand a claimed-but-not-owned drive off to.
 
 	CALL	0f429h		;31c7
 	JR	NZ,l31dfh	;31ca

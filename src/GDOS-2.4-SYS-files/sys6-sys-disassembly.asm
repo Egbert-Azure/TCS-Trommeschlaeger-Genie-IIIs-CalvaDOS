@@ -6,10 +6,6 @@
 ; Disassembled and commented by
 ; E.H. Schroeer
 ;
-; Name: sys6-sys-disassembly.asm
-;
-; Date: 2026/08/21
-;
 ;************************************************************************
 ; SYS6/SYS, stock GDOS 2.4 -- the COPY command (A-48h, C-00h).
 ;
@@ -24,8 +20,7 @@
 ; not a passive data buffer, which is why it's included here rather than
 ; left out.
 ;
-;               z80dasm -g 0x4d00 -l -a -t -o sys6-sys-disassembly.asm sys6_flat.bin
-
+;	z80dasm -g 0x4d00 -l -a -t sys6_flat.bin
 ;
 ; COPY resolves each drive it's given (source and destination) by calling
 ; stock DRVSEL (m4776/dgetsl, sub_6e76h at 6E76h) with the raw DOS drive
@@ -57,20 +52,20 @@
 ; The system slot is never filled in and never FFh: it is hardcoded to
 ; drive 0. So COPY verifies drive 0 on EVERY copy -- which is why a file
 ; copy naming neither drive 0 nor a whole disk ("copy rdldemo/job:5 :4")
-; failed exactly like "copy 5 6" on this port. When the verify fails,
+; fails exactly like "copy 5 6" on this port. When the verify fails,
 ; l55ech's "CALL 047ECh / JR NZ,l55c1h" jumps straight back to the prompt,
-; producing the repeating "'ENTER', wenn ===> Systemdiskette in Laufwerk
-; Nr. 0" the user reported.
+; producing a repeating "'ENTER', wenn ===> Systemdiskette in Laufwerk
+; Nr. 0".
 ;
 ; PATCHED by run-hdboottest.sh: 5942h, 00h -> 05h (sysvol). Same class of
 ; hardcoded-drive-0 site already patched in SYS26/SYS (4EFEh, 4F3Bh) and
-; OVL4/SYS (32ECh), but the first one found in a DATA table rather than in
-; a DRVSEL call -- invisible to every pass that read only code. The patch
+; OVL4/SYS (32ECh), but the first found in a DATA table rather than in a
+; DRVSEL call -- invisible to every pass that read only code. The patch
 ; asserts the stock byte is 00h and that both neighbouring slots are still
-; FFh, so a wrong address fails loudly. Live-confirmed 2026-08-21.
+; FFh, so a wrong address fails loudly.
 ;
-;   z80dasm -g 0x4d00 -l -a -t sys6_flat.bin
-
+; Two earlier fixes were built and disproven; see known-issues.md.
+;
 
 	org 04d00h
 

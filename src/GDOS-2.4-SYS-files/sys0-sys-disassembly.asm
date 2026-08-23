@@ -1,3 +1,4 @@
+; /docs/reference/sys0-sys-disassembly.asm
 ; SYS0/SYS module 0, from DMK/G3S-GDOS24.DMK, carrying this port's own SYS0
 ; patches. Not every one of them: the byte column does not reflect the
 ; AUTO-command patches at 4EF9h/4F0Dh or the drive-0 read at 50C4h, and the
@@ -359,7 +360,7 @@
 43D2  42        ld b,d
 43D3  00        nop
 43D4  00        nop  ; [note] dfcbdv2 -- runtime write. Cold: 00h. ginit writes sysvol (05h) once at boot.
-43D5  ff        rst 38h  ; [note] dfcbdec -- runtime write. Cold: FFh. rdecfix (3743h) rewrites it on every GETSYS call.
+43D5  ff        rst 38h  ; [note] dfcbdec -- runtime write. Cold: FFh. rdecfix (4495h) rewrites it on every GETSYS call.
 43D6  00        nop
 43D7  00        nop
 43D8  00        nop
@@ -1280,7 +1281,7 @@
 4953  c6 16     add a,016h
 4955  6f        ld l,a
 4956  dd 7e 0e  ld a,(ix+00eh)
-4959  be        cp (hl)  ; [note] dfcbdec (43D5h) read, set by rdecfix (3743h) via the 4BF0h patch.
+4959  be        cp (hl)  ; [note] dfcbdec (43D5h) read, set by rdecfix (4495h) via the 4BF0h patch.
 495A  e1        pop hl
 495B  28 03     jr z,l4960h
 495D  3c        inc a
@@ -1764,14 +1765,11 @@
 4C0E  3a 17 43  ld a,(04317h)  ; sollte SYS4/SYS
 4C11  fe 06     cp 006h  ; geladen werden ?
 4C13  00 00     nop / nop  ; [PATCH] STOCK 28 FE (JR Z,4C13h): "wenn ja:
-                           ; Endlosschleife". THIS BUILD: 00 00 (NOP/NOP),
-                           ; live-verified at runtime 2026-08-21.
-                           ; Listed as "18 03 (JR 4C18h)" until then -- stale:
-                           ; that was a first attempt, replaced because an
-                           ; unconditional JR also skipped 4C15h-4C17h's own
-                           ; error-code step for EVERY module's load failure,
-                           ; not just SYS4/SYS's. NOP/NOP keeps the same
-                           ; footprint and falls through to the normal path.
+                           ; Endlosschleife". NOP/NOP keeps the same footprint
+                           ; and falls through to 4C15h's own error-code step
+                           ; and then the normal path. An unconditional
+                           ; JR 4C18h would skip that step for EVERY module's
+                           ; load failure, not just SYS4/SYS's.
 4C15  26 2e     ld h,02eh  ; Fehlercode "SYSTEM PROGRAM NOT FOUND"
 4C17  e3        ex (sp),hl  ; in den Stack statt gerettetem AF-Wert
 ; SYS-File starten
