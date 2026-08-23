@@ -189,7 +189,6 @@ src/        Source code
 ROM/        Boot ROMs and EPROM images
 HDV/        Hard disk images
 DMK/        Floppy disk images
-tools/      Development and analysis tools
 docs/       Documentation
 ```
 
