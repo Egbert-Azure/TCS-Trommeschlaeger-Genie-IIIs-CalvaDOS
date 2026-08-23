@@ -1,14 +1,17 @@
 ; /docs/reference/sys0-sys-disassembly.asm
-; SYS0/SYS module 0, as patched by run-hdboottest.sh (DMK/G3S-GDOS24.DMK
-; plus the six file patches in boot-patch-inventory.md).
+; SYS0/SYS module 0, from DMK/G3S-GDOS24.DMK, carrying this port's own SYS0
+; patches. Not every one of them: the byte column does not reflect the
+; AUTO-command patches at 4EF9h/4F0Dh or the drive-0 read at 50C4h, and the
+; boot-banner block at 4FABh-504Dh is string data that this listing
+; disassembles as though it were code.
 ;
 ; Trailing comments with no prefix quote Hartmut Grosser, Das DOS-Buch fuer
 ; TRS-80, Genie und Colour Genie, verbatim (German) -- ch.3 (base NEWDOS/80
 ; SYS0/SYS listing) unless stated otherwise. Grosser's book documents GDOS
 ; 2.1c; this build is GDOS 2.4.
-; [PATCH]  this project's file patch: stock GDOS 2.4 byte vs. this build.
-; [note]   a fact not from Grosser (project finding, or GDOS 2.4 vs.
-;          Grosser's 2.1c/ch.9.4.2 divergence).
+; [PATCH]  a patch: stock GDOS 2.4 byte vs. this build.
+; [note]   not from Grosser -- either a finding here, or a place GDOS 2.4
+;          diverges from Grosser's 2.1c (his ch.9.4.2).
 ;
 ; Unannotated lines are z80dasm output, unedited.
 
@@ -1733,7 +1736,7 @@
 4BE0  77        ld (hl),a
 4BE1  e6 07     and 007h
 4BE3  4f        ld c,a
-4BE4  cd 3a 37  call 0373ah
+4BE4  cd 8c 44  call 0448ch
 4BE7  00        nop
 4BE8  00        nop
 4BE9  00        nop
@@ -1743,7 +1746,7 @@
 4BED  07        rlca
 4BEE  07        rlca
 4BEF  81        add a,c
-4BF0  cd 43 37  call 03743h
+4BF0  cd 95 44  call 04495h
 4BF3  20 19     jr nz,l4c0eh
 4BF5  cb 76     bit 6,(hl)
 4BF7  28 15     jr z,l4c0eh
@@ -1761,7 +1764,15 @@
 ; Fehlerbehandlung
 4C0E  3a 17 43  ld a,(04317h)  ; sollte SYS4/SYS
 4C11  fe 06     cp 006h  ; geladen werden ?
-4C13  18 03     jr l4c18h  ; [PATCH] STOCK 28 FE (JR Z,4C13h): "wenn ja: Endlosschleife". THIS BUILD: 18 03 (JR 4C18h).
+4C13  00 00     nop / nop  ; [PATCH] STOCK 28 FE (JR Z,4C13h): "wenn ja:
+                           ; Endlosschleife". THIS BUILD: 00 00 (NOP/NOP),
+                           ; live-verified at runtime 2026-08-21.
+                           ; Listed as "18 03 (JR 4C18h)" until then -- stale:
+                           ; that was a first attempt, replaced because an
+                           ; unconditional JR also skipped 4C15h-4C17h's own
+                           ; error-code step for EVERY module's load failure,
+                           ; not just SYS4/SYS's. NOP/NOP keeps the same
+                           ; footprint and falls through to the normal path.
 4C15  26 2e     ld h,02eh  ; Fehlercode "SYSTEM PROGRAM NOT FOUND"
 4C17  e3        ex (sp),hl  ; in den Stack statt gerettetem AF-Wert
 ; SYS-File starten
@@ -1770,9 +1781,11 @@
 4C1A  c1        pop bc  ; BC zurueck
 4C1B  d1        pop de  ; DE zurueck
 4C1C  e1        pop hl  ; HL zurueck
-4C1D  00        nop  ; [PATCH] STOCK CC 00 00 (CALL Z,nnnn): "wenn kein Error: SYS-File starten". THIS BUILD: 00 00 00 (NOP x3).
-4C1E  00        nop
-4C1F  00        nop
+4C1D  cc 00 00  call z,00000h  ; "wenn kein Error: SYS-File starten". Not patched.
+                             ; The call target (4C1Eh/4C1Fh) is self-modified at
+                             ; 4C09h ("ld (l4c1eh),hl") with the SYS-file's own
+                             ; start address, so it reads 00 00 in the file on
+                             ; disk.
 4C20  e5        push hl
 4C21  21 69 43  ld hl,04369h
 4C24  cb b6     res 6,(hl)
@@ -1964,11 +1977,27 @@
 4D5A  22 6c 43  ld (0436ch),hl
 4D5D  2a f2 42  ld hl,(042f2h)
 4D60  22 6e 43  ld (0436eh),hl
-4D63  3a a0 42  ld a,(042a0h)
-4D66  32 9f 43  ld (0439fh),a
-4D69  32 7a 47  ld (0477ah),a
-4D6C  3d        dec a
-4D6D  fe 04     cp 004h
+; === The cold start's own drive-count distribution. One configuration byte,
+; === 42A0h, goes to two places: 439Fh (dndrv, "Anzahl Drives" -- see
+; === src/volker/SYS29.asm's m439f, and SYS29/SYS's own ceiling check at
+; === 4F23h) and 477Ah (the CP nn operand inside DRVSEL at 4779h). Right for
+; === stock GDOS, where every drive is a floppy and the two numbers are the
+; === same; wrong for this port, which serves drives up to 9. PATCHED as one
+; === 12-byte block by run-hdboottest.sh -- see that file for the reasoning.
+; === Bytes below are THIS BUILD's; stock is shown per line.
+4D63  3e 0a     ld a,00ah    ; [PATCH] STOCK 3A A0 42 (LD A,(42A0h)).
+                             ; 0Ah = the drives gpar actually serves.
+4D65  32 9f 43  ld (0439fh),a ; [PATCH] STOCK at 4D66h, moved up 1 byte.
+4D68  3a a0 42  ld a,(042a0h) ; [PATCH] the floppy count, reloaded for 477Ah
+4D6B  32 7a 47  ld (0477ah),a ; [PATCH] STOCK at 4D69h. Unchanged in effect:
+                             ; DRVSEL's CP nn still gets dnflop.
+4D6E  37        scf          ; [PATCH] STOCK 3D FE 04 (DEC A / CP 04h), the
+                             ; 1..4 sanity check on a configuration sector
+                             ; read off a floppy. This boot supplies that
+                             ; sector from gcfg in gdos-omti.asm, where 42A0h
+                             ; is a fixed 04h, so there is nothing left to
+                             ; catch. SCF keeps 4D6Fh's own JR NC below from
+                             ; ever firing.
 4D6F  30 60     jr nc,l4dd1h
 4D71  3a a1 42  ld a,(042a1h)
 4D74  32 ba 4a  ld (04abah),a

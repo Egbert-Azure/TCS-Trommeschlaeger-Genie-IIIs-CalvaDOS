@@ -12,14 +12,10 @@
 ;
 ;************************************************************************
 ;
-; Format follows this project's SYS8-sys-disassembly.asm 
-;   (EQU table for
-;   every address referenced outside this file's own image
-;   ORG/END,
-;   uppercase mnemonics, inline "mXXXX  OP  operands" labels 
-;   z80dasm output for the same shape with English [note] comments for facts established this session or
-;   already documented elsewhere 
-;   Not Grosser-sourced prose unless a line says so.
+; Format follows SYS8-sys-disassembly.asm: an EQU table for every address
+; referenced outside this file's own image, ORG/END, uppercase mnemonics,
+; inline "mXXXX  OP  operands" labels, and [note] comments for anything read
+; off the disassembly rather than taken from Grosser.
 ;
 ;   python3 trsload.py SYS7.SYS --extract 4D00-51E7 -o sys7_flat.bin
 ;   z80dasm -g 0x4d00 -l -a -t sys7_flat.bin
@@ -39,7 +35,7 @@
 ;   C=09 -> m4d69  DB PURGE
 ;   C=0A / C=0B     DB TIME / DB DATE (not individually traced)
 ;
-; [note]   a fact established this session, not from any prior reference.
+; [note]   read off the disassembly, not from any prior reference.
 
 m0000	EQU	0000h
 m0005	EQU	0005h
@@ -84,10 +80,10 @@ m4cd5	EQU	4cd5h
 m4cd9	EQU	4cd9h
 m51e8	EQU	51e8h
 m554e	EQU	554eh
-me506	EQU	e506h
-me908	EQU	e908h
-mff00	EQU	ff00h
-mffff	EQU	ffffh
+me506	EQU	0e506h
+me908	EQU	0e908h
+mff00	EQU	0ff00h
+mffff	EQU	0ffffh
 	ORG	4D00H
 	LD	IY,m4380
 	CP	0E9H

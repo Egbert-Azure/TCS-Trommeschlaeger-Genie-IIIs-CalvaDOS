@@ -11,830 +11,783 @@
 ; Date: 2026/08/20
 ;
 ;************************************************************************
-; /src/GDOS-2.4-SYS-files/sys2-sys-disassembly.asm
-; SYS2/SYS, stock GDOS 2.4
-;
-; Start 4D00h, RAM range 4D00h-51ACh -- confirmed two independent ways:
-; (1) this file's own load records (tools/trsload.py --map against
-; DMK/G3S-GDOS24.DMK's SYS2/SYS), perfectly contiguous, no gaps;
-; (2) matches src/G3S-GDOS24-Extract/SYS-Files-RAM-RANGES.md exactly
-; (Grosser ch.7: "SYS2/SYS -- EOF 4/197, RAM 4D00-51AC, Start 4D00").
+; SYS2/SYS, stock GDOS 2.4. Loads contiguously into 4D00h-51ACh, no gaps,
+; entry 4D00h. Grosser ch.7 gives the same extent: "SYS2/SYS -- EOF 4/197,
+; RAM 4D00-51AC, Start 4D00".
 ;
 ;
-; z80dasm 1.2.0
-; command line: z80dasm -g 0x4d00 -l -a -t -o sys2-sys-disassembly.asm sys2sys_flat.bin
+;   z80dasm -g 0x4d00 -l -a -t sys2_flat.bin
 ;
-; Not yet cross-checked against Grosser (his book has no GDOS-specific
-; SYS2/SYS listing -- see the Grosser-verification-rule memory) or
-; annotated -- this is raw, unedited z80dasm output.
+; each line in the right-hand column. Verified by assembling this file with
+; pasmo and comparing the result with the module byte for byte.
+; Rewritten from that z80dasm output into readable assembly: every address
+; of z80dasm's lNNNNh/sub_NNNNh and the module address of each line on the
+; right. Verified by assembling this file with pasmo and comparing the result
+; with the module byte for byte.
+;
+; Parts of every module are data -- message strings and tables -- that
+; z80dasm decodes as instructions, because it walks the bytes in order
+; rather than following where the code can go. Those stretches read as
+; nonsense (LD C,C / LD D,E is the letters I S), and any number in them
+; is a data byte, not an address. Only references that land in low RAM,
+; the DOS or this module get a symbol; anything else keeps its number,
+; which is the signal that it is not a reference at all.
 
-; z80dasm 1.2.0
-; command line: z80dasm -g 0x4d00 -l -a -t -o sys2sys_disasm.asm sys2sys_flat.bin
-
-	org 04d00h
-
-	cp 024h			;4d00	fe 24		. $
-	jp z,l4e2eh		;4d02	ca 2e 4e	. . N
-	cp 044h			;4d05	fe 44		. D
-	jp z,l4dbdh		;4d07	ca bd 4d	. . M
-	cp 064h			;4d0a	fe 64		. d
-	jp z,l4f82h		;4d0c	ca 82 4f	. . O
-	cp 084h			;4d0f	fe 84		. .
-	jp z,l5155h		;4d11	ca 55 51	. U Q
-	cp 0a4h			;4d14	fe a4		. .
-	jr z,l4d92h		;4d16	28 7a		( z
-	cp 0c4h			;4d18	fe c4		. .
-	jr z,l4d80h		;4d1a	28 64		( d
-	cp 0e4h			;4d1c	fe e4		. .
-	jr nz,l4d2eh		;4d1e	20 0e		  .
-	dec c			;4d20	0d		.
-	jr z,l4d32h		;4d21	28 0f		( .
-	dec c			;4d23	0d		.
-	jp z,l50cah		;4d24	ca ca 50	. . P
-	dec c			;4d27	0d		.
-	jr z,l4d7bh		;4d28	28 51		( Q
-	dec c			;4d2a	0d		.
-	jp z,l4d72h		;4d2b	ca 72 4d	. r M
-l4d2eh:
-	ld a,02ah		;4d2e	3e 2a		> *
-l4d30h:
-	or a			;4d30	b7		.
-	ret			;4d31	c9		.
-l4d32h:
-	push de			;4d32	d5		.
-	pop ix			;4d33	dd e1		. .
-	inc de			;4d35	13		.
-	ld a,(de)		;4d36	1a		.
-	and 007h		;4d37	e6 07		. .
-	cp 003h			;4d39	fe 03		. .
-	ld a,025h		;4d3b	3e 25		> %
-	jr nc,l4d30h		;4d3d	30 f1		0 .
-	ld hl,l4e75h		;4d3f	21 75 4e	! u N
-	ld (hl),03eh		;4d42	36 3e		6 >
-	ld de,051e0h		;4d44	11 e0 51	. . Q
-	call sub_4e2ch		;4d47	cd 2c 4e	. , N
-	ld (hl),018h		;4d4a	36 18		6 .
-	jr z,l4d77h		;4d4c	28 29		( )
-	cp 018h			;4d4e	fe 18		. .
-	call z,0494bh		;4d50	cc 4b 49	. K I
-	ret nz			;4d53	c0		.
-	ld a,l			;4d54	7d		}
-	add a,005h		;4d55	c6 05		. .
-	ld l,a			;4d57	6f		o
-	ex de,hl		;4d58	eb		.
-	ld hl,051cdh		;4d59	21 cd 51	! . Q
-	ld bc,0000bh		;4d5c	01 0b 00	. . .
-	ldir			;4d5f	ed b0		. .
-	call 0491fh		;4d61	cd 1f 49	. . I
-	ld a,001h		;4d64	3e 01		> .
-	call z,0490ah		;4d66	cc 0a 49	. . I
-	ret nz			;4d69	c0		.
-	ld l,(ix+007h)		;4d6a	dd 6e 07	. n .
-	ld (hl),000h		;4d6d	36 00		6 .
-	jp 0491fh		;4d6f	c3 1f 49	. . I
-l4d72h:
-	call l4dbdh		;4d72	cd bd 4d	. . M
-	ret nz			;4d75	c0		.
-	ret c			;4d76	d8		.
-l4d77h:
-	ld a,035h		;4d77	3e 35		> 5
-	or a			;4d79	b7		.
-	ret			;4d7a	c9		.
-l4d7bh:
-	call 04cd5h		;4d7b	cd d5 4c	. . L
-	ret c			;4d7e	d8		.
-	pop af			;4d7f	f1		.
-l4d80h:
-	ex (sp),hl		;4d80	e3		.
-	call l4d92h		;4d81	cd 92 4d	. . M
-	jp nz,04409h		;4d84	c2 09 44	. . D
-	ex (sp),hl		;4d87	e3		.
-	ld a,(04369h)		;4d88	3a 69 43	: i C
-	rlca			;4d8b	07		.
-	jp c,0440dh		;4d8c	da 0d 44	. . D
-	jp 04c20h		;4d8f	c3 20 4c	.   L
-l4d92h:
-	ld hl,04200h		;4d92	21 00 42	! . B
-	call sub_4e2ch		;4d95	cd 2c 4e	. , N
-	jr z,l4da0h		;4d98	28 06		( .
-	cp 018h			;4d9a	fe 18		. .
-	ret nz			;4d9c	c0		.
-	add a,007h		;4d9d	c6 07		. .
-	ret			;4d9f	c9		.
-l4da0h:
-	ex de,hl		;4da0	eb		.
-	inc hl			;4da1	23		#
-	ld a,(hl)		;4da2	7e		~
-	push af			;4da3	f5		.
-	push hl			;4da4	e5		.
-	and 007h		;4da5	e6 07		. .
-	ld b,a			;4da7	47		G
-	ld a,006h		;4da8	3e 06		> .
-	cp b			;4daa	b8		.
-	ld a,025h		;4dab	3e 25		> %
-	ld (hl),02dh		;4dad	36 2d		6 -
-	dec hl			;4daf	2b		+
-	call nc,04c28h		;4db0	d4 28 4c	. ( L
-	ld (04403h),hl		;4db3	22 03 44	" . D
-	ex de,hl		;4db6	eb		.
-	pop hl			;4db7	e1		.
-	pop bc			;4db8	c1		.
-	ld (hl),b		;4db9	70		p
-	dec hl			;4dba	2b		+
-	ex de,hl		;4dbb	eb		.
-	ret			;4dbc	c9		.
-l4dbdh:
-	call l4e2eh		;4dbd	cd 2e 4e	. . N
-	ret z			;4dc0	c8		.
-	cp 018h			;4dc1	fe 18		. .
-	ret nz			;4dc3	c0		.
-	call 04986h		;4dc4	cd 86 49	. . I
-	ld bc,(sub_4e09h+1)	;4dc7	ed 4b 0a 4e	. K . N
-	ld a,b			;4dcb	78		x
-	cp c			;4dcc	b9		.
-	jr z,l4dd2h		;4dcd	28 03		( .
-	ld a,(043a1h)		;4dcf	3a a1 43	: . C
-l4dd2h:
-	ld (04e0eh),a		;4dd2	32 0e 4e	2 . N
-	call 047ech		;4dd5	cd ec 47	. . G
-	jr nz,l4de3h		;4dd8	20 09		  .
-	ld hl,04d6eh		;4dda	21 6e 4d	! n M
-	ld b,(hl)		;4ddd	46		F
-	call sub_50cfh		;4dde	cd cf 50	. . P
-	jr z,l4deah		;4de1	28 07		( .
-l4de3h:
-	ld e,01ah		;4de3	1e 1a		. .
-	call sub_4e09h		;4de5	cd 09 4e	. . N
-	jr l4dd2h		;4de8	18 e8		. .
-l4deah:
-	ld (04f56h),a		;4dea	32 56 4f	2 V O
-	ld (hl),010h		;4ded	36 10		6 .
-	call sub_4e1fh		;4def	cd 1f 4e	. . N
-	ld a,(04f5eh)		;4df2	3a 5e 4f	: ^ O
-	ld (hl),a		;4df5	77		w
-	inc hl			;4df6	23		#
-	ex de,hl		;4df7	eb		.
-	ld hl,051cdh		;4df8	21 cd 51	! . Q
-	ld bc,0000fh		;4dfb	01 0f 00	. . .
-	ldir			;4dfe	ed b0		. .
-	call 0491fh		;4e00	cd 1f 49	. . I
-	ret nz			;4e03	c0		.
-	call sub_4f2eh		;4e04	cd 2e 4f	. . O
-	scf			;4e07	37		7
-	ret			;4e08	c9		.
-sub_4e09h:
-	ld hl,00000h		;4e09	21 00 00	! . .
-	ld d,a			;4e0c	57		W
-	ld a,000h		;4e0d	3e 00		> .
-	inc a			;4e0f	3c		<
-	cp l			;4e10	bd		.
-	ret c			;4e11	d8		.
-	pop hl			;4e12	e1		.
-	jr z,l4e18h		;4e13	28 03		( .
-	ld a,d			;4e15	7a		z
-	or a			;4e16	b7		.
-	ret nz			;4e17	c0		.
-l4e18h:
-	ld a,e			;4e18	7b		{
-	or a			;4e19	b7		.
-	ret			;4e1a	c9		.
-l4e1bh:
-	ld a,020h		;4e1b	3e 20		>  
-	or a			;4e1d	b7		.
-	ret			;4e1e	c9		.
-sub_4e1fh:
-	inc hl			;4e1f	23		#
-	ld a,(hl)		;4e20	7e		~
-	ld (04f46h),a		;4e21	32 46 4f	2 F O
-	inc hl			;4e24	23		#
-	inc hl			;4e25	23		#
-	ld a,(hl)		;4e26	7e		~
-	ld (04f58h),a		;4e27	32 58 4f	2 X O
-	inc hl			;4e2a	23		#
-	ret			;4e2b	c9		.
-sub_4e2ch:
-	ld b,000h		;4e2c	06 00		. .
-l4e2eh:
-	call 04986h		;4e2e	cd 86 49	. . I
-	ld (04f48h),hl		;4e31	22 48 4f	" H O
-	ld a,b			;4e34	78		x
-	ld (04f5eh),a		;4e35	32 5e 4f	2 ^ O
-	ld hl,051cdh		;4e38	21 cd 51	! . Q
-	dec de			;4e3b	1b		.
-	xor a			;4e3c	af		.
-	call sub_5121h		;4e3d	cd 21 51	. ! Q
-	cp 02fh			;4e40	fe 2f		. /
-	ld b,003h		;4e42	06 03		. .
-	call sub_5123h		;4e44	cd 23 51	. # Q
-	cp 02eh			;4e47	fe 2e		. .
-	call sub_5121h		;4e49	cd 21 51	. ! Q
-	ld b,000h		;4e4c	06 00		. .
-	ld c,(iy+01fh)		;4e4e	fd 4e 1f	. N .
-	cp 03ah			;4e51	fe 3a		. :
-	jr nz,l4e75h		;4e53	20 20		   
-	inc de			;4e55	13		.
-	ld a,(de)		;4e56	1a		.
-	sub 030h		;4e57	d6 30		. 0
-	cp 00ah			;4e59	fe 0a		. .
-	jr nc,l4e1bh		;4e5b	30 be		0 .
-l4e5dh:
-	ld c,a			;4e5d	4f		O
-	inc de			;4e5e	13		.
-	ld a,(de)		;4e5f	1a		.
-	sub 030h		;4e60	d6 30		. 0
-	cp 00ah			;4e62	fe 0a		. .
-	jr nc,l4e74h		;4e64	30 0e		0 .
-	ld l,a			;4e66	6f		o
-	ld a,c			;4e67	79		y
-	ld b,009h		;4e68	06 09		. .
-l4e6ah:
-	add a,c			;4e6a	81		.
-	jr c,l4e1bh		;4e6b	38 ae		8 .
-	djnz l4e6ah		;4e6d	10 fb		. .
-	add a,l			;4e6f	85		.
-	jr nc,l4e5dh		;4e70	30 eb		0 .
-	jr l4e1bh		;4e72	18 a7		. .
-l4e74h:
-	ld b,c			;4e74	41		A
-l4e75h:
-	jr l4e7fh		;4e75	18 08		. .
-	ld a,c			;4e77	79		y
-	cp b			;4e78	b8		.
-	jr z,l4e1bh		;4e79	28 a0		( .
-	ld b,(iy-078h)		;4e7b	fd 46 88	. F .
-	ld c,b			;4e7e	48		H
-l4e7fh:
-	ld (sub_4e09h+1),bc	;4e7f	ed 43 0a 4e	. C . N
-	push bc			;4e83	c5		.
-	call sub_5152h		;4e84	cd 52 51	. R Q
-	ld (051d8h),hl		;4e87	22 d8 51	" . Q
-	ld (051dah),hl		;4e8a	22 da 51	" . Q
-	ld hl,051cdh		;4e8d	21 cd 51	! . Q
-	ld b,00bh		;4e90	06 0b		. .
-	xor a			;4e92	af		.
-l4e93h:
-	xor (hl)		;4e93	ae		.
-	inc hl			;4e94	23		#
-	rlca			;4e95	07		.
-	djnz l4e93h		;4e96	10 fb		. .
-	jr nz,l4e9bh		;4e98	20 01		  .
-	inc a			;4e9a	3c		<
-l4e9bh:
-	ld (04d6eh),a		;4e9b	32 6e 4d	2 n M
-	pop af			;4e9e	f1		.
-l4e9fh:
-	ld (04e0eh),a		;4e9f	32 0e 4e	2 . N
-	call sub_5188h		;4ea2	cd 88 51	. . Q
-	jr z,l4eaeh		;4ea5	28 07		( .
-l4ea7h:
-	ld e,018h		;4ea7	1e 18		. .
-	call sub_4e09h		;4ea9	cd 09 4e	. . N
-	jr l4e9fh		;4eac	18 f1		. .
-l4eaeh:
-	ld de,051adh		;4eae	11 ad 51	. . Q
-	ld bc,0001fh		;4eb1	01 1f 00	. . .
-l4eb4h:
-	ld a,b			;4eb4	78		x
-	sub c			;4eb5	91		.
-	jr z,l4ea7h		;4eb6	28 ef		( .
-	ld a,001h		;4eb8	3e 01		> .
-	call 0490ah		;4eba	cd 0a 49	. . I
-	ret nz			;4ebd	c0		.
-	ld a,b			;4ebe	78		x
-l4ebfh:
-	ld b,a			;4ebf	47		G
-	ld (de),a		;4ec0	12		.
-	ld l,a			;4ec1	6f		o
-	ld a,e			;4ec2	7b		{
-	cp 0cch			;4ec3	fe cc		. .
-	jr z,l4eddh		;4ec5	28 16		( .
-	ld a,(04d6eh)		;4ec7	3a 6e 4d	: n M
-	cp (hl)			;4eca	be		.
-	jr nz,l4eceh		;4ecb	20 01		  .
-	inc de			;4ecd	13		.
-l4eceh:
-	ld a,b			;4ece	78		x
-	add a,020h		;4ecf	c6 20		.  
-	jr nc,l4ebfh		;4ed1	30 ec		0 .
-	inc a			;4ed3	3c		<
-	cp c			;4ed4	b9		.
-	ld b,a			;4ed5	47		G
-	jr c,l4ebfh		;4ed6	38 e7		8 .
-l4ed8h:
-	ld a,e			;4ed8	7b		{
-	cp 0adh			;4ed9	fe ad		. .
-	jr z,l4eb4h		;4edb	28 d7		( .
-l4eddh:
-	dec de			;4edd	1b		.
-	ld a,(de)		;4ede	1a		.
-	ld (04f56h),a		;4edf	32 56 4f	2 V O
-	call 0492fh		;4ee2	cd 2f 49	. / I
-	ret nz			;4ee5	c0		.
-	push de			;4ee6	d5		.
-	push bc			;4ee7	c5		.
-	ld a,(hl)		;4ee8	7e		~
-	ld (04f24h),a		;4ee9	32 24 4f	2 $ O
-	and 090h		;4eec	e6 90		. .
-	cp 010h			;4eee	fe 10		. .
-	jr nz,l4f00h		;4ef0	20 0e		  .
-	call sub_4e1fh		;4ef2	cd 1f 4e	. . N
-	ld de,051cdh		;4ef5	11 cd 51	. . Q
-	ld b,00bh		;4ef8	06 0b		. .
-l4efah:
-	inc hl			;4efa	23		#
-	ld a,(de)		;4efb	1a		.
-	cp (hl)			;4efc	be		.
-	inc de			;4efd	13		.
-	jr z,l4f04h		;4efe	28 04		( .
-l4f00h:
-	pop bc			;4f00	c1		.
-	pop de			;4f01	d1		.
-	jr l4ed8h		;4f02	18 d4		. .
-l4f04h:
-	djnz l4efah		;4f04	10 f4		. .
-	pop bc			;4f06	c1		.
-	pop de			;4f07	d1		.
-	inc hl			;4f08	23		#
-	ld e,(hl)		;4f09	5e		^
-	inc hl			;4f0a	23		#
-	ld d,(hl)		;4f0b	56		V
-	inc hl			;4f0c	23		#
-	ld c,(hl)		;4f0d	4e		N
-	inc hl			;4f0e	23		#
-	ld b,(hl)		;4f0f	46		F
-	inc hl			;4f10	23		#
-	push hl			;4f11	e5		.
-	ld hl,(051d8h)		;4f12	2a d8 51	* . Q
-	bit 7,(iy-014h)		;4f15	fd cb ec 7e	. . . ~
-	jr z,l4f2fh		;4f19	28 14		( .
-	or a			;4f1b	b7		.
-	sbc hl,de		;4f1c	ed 52		. R
-	jr z,l4f2fh		;4f1e	28 0f		( .
-	add hl,de		;4f20	19		.
-	ld a,007h		;4f21	3e 07		> .
-	and 000h		;4f23	e6 00		. .
-	sbc hl,bc		;4f25	ed 42		. B
-	jr z,l4f30h		;4f27	28 07		( .
-	pop hl			;4f29	e1		.
-	ld a,019h		;4f2a	3e 19		> .
-	or a			;4f2c	b7		.
-	ret			;4f2d	c9		.
-sub_4f2eh:
-	push de			;4f2e	d5		.
-l4f2fh:
-	xor a			;4f2f	af		.
-l4f30h:
-	push ix			;4f30	dd e5		. .
-	pop hl			;4f32	e1		.
-	call sub_5110h		;4f33	cd 10 51	. . Q
-	ld (hl),080h		;4f36	36 80		6 .
-	inc hl			;4f38	23		#
-	or 028h			;4f39	f6 28		. (
-	ld (hl),a		;4f3b	77		w
-	ld a,(04f5eh)		;4f3c	3a 5e 4f	: ^ O
-	or a			;4f3f	b7		.
-	jr z,l4f44h		;4f40	28 02		( .
-	set 7,(hl)		;4f42	cb fe		. .
-l4f44h:
-	inc hl			;4f44	23		#
-	ld (hl),000h		;4f45	36 00		6 .
-	ld de,00000h		;4f47	11 00 00	. . .
-	inc hl			;4f4a	23		#
-	ld (hl),e		;4f4b	73		s
-	inc hl			;4f4c	23		#
-	ld (hl),d		;4f4d	72		r
-	inc hl			;4f4e	23		#
-	inc hl			;4f4f	23		#
-	ld a,(iy-078h)		;4f50	fd 7e 88	. ~ .
-	ld (hl),a		;4f53	77		w
-	inc hl			;4f54	23		#
-	ld (hl),000h		;4f55	36 00		6 .
-	ld a,000h		;4f57	3e 00		> .
-	inc hl			;4f59	23		#
-	or a			;4f5a	b7		.
-	ld (hl),a		;4f5b	77		w
-	inc hl			;4f5c	23		#
-	ld (hl),000h		;4f5d	36 00		6 .
-	inc hl			;4f5f	23		#
-	inc hl			;4f60	23		#
-	inc hl			;4f61	23		#
-	pop de			;4f62	d1		.
-	ld a,(de)		;4f63	1a		.
-	inc de			;4f64	13		.
-	jr z,l4f69h		;4f65	28 02		( .
-	sub 001h		;4f67	d6 01		. .
-l4f69h:
-	ld (hl),a		;4f69	77		w
-	inc hl			;4f6a	23		#
-	ld a,(de)		;4f6b	1a		.
-	sbc a,000h		;4f6c	de 00		. .
-	ld (hl),a		;4f6e	77		w
-	inc de			;4f6f	13		.
-	inc hl			;4f70	23		#
-	ld a,02ch		;4f71	3e 2c		> ,
-	ret c			;4f73	d8		.
-	call sub_4f79h		;4f74	cd 79 4f	. y O
-	xor a			;4f77	af		.
-	ret			;4f78	c9		.
-sub_4f79h:
-	ex de,hl		;4f79	eb		.
-sub_4f7ah:
-	ld a,008h		;4f7a	3e 08		> .
-	ld c,a			;4f7c	4f		O
-	ld b,000h		;4f7d	06 00		. .
-	ldir			;4f7f	ed b0		. .
-	ret			;4f81	c9		.
-l4f82h:
-	ld a,03dh		;4f82	3e 3d		> =
-	bit 7,(ix+002h)		;4f84	dd cb 02 7e	. . . ~
-	call z,0476eh		;4f88	cc 6e 47	. n G
-	jr nz,l4ffbh		;4f8b	20 6e		  n
-	ld a,(0486ah)		;4f8d	3a 6a 48	: j H
-	ld (0505eh),a		;4f90	32 5e 50	2 ^ P
-	push af			;4f93	f5		.
-	call 04936h		;4f94	cd 36 49	. 6 I
-	call sub_5036h		;4f97	cd 36 50	. 6 P
-	inc de			;4f9a	13		.
-	push de			;4f9b	d5		.
-	call sub_50b4h		;4f9c	cd b4 50	. . P
-	ld b,(iy-071h)		;4f9f	fd 46 8f	. F .
-	ld c,001h		;4fa2	0e 01		. .
-	ld e,(hl)		;4fa4	5e		^
-	inc e			;4fa5	1c		.
-	jr z,l4fc5h		;4fa6	28 1d		( .
-	dec e			;4fa8	1d		.
-	dec e			;4fa9	1d		.
-	inc hl			;4faa	23		#
-	ld a,(hl)		;4fab	7e		~
-	and 01fh		;4fac	e6 1f		. .
-	ld d,a			;4fae	57		W
-	inc d			;4faf	14		.
-	ld a,(hl)		;4fb0	7e		~
-	and 0e0h		;4fb1	e6 e0		. .
-	dec hl			;4fb3	2b		+
-	rlca			;4fb4	07		.
-	rlca			;4fb5	07		.
-	rlca			;4fb6	07		.
-	add a,d			;4fb7	82		.
-l4fb8h:
-	inc e			;4fb8	1c		.
-	sub b			;4fb9	90		.
-	jr nc,l4fb8h		;4fba	30 fc		0 .
-	add a,b			;4fbc	80		.
-	jr z,l4fc5h		;4fbd	28 06		( .
-l4fbfh:
-	rlc c			;4fbf	cb 01		. .
-	dec b			;4fc1	05		.
-	dec a			;4fc2	3d		=
-	jr nz,l4fbfh		;4fc3	20 fa		  .
-l4fc5h:
-	push hl			;4fc5	e5		.
-	xor a			;4fc6	af		.
-	call 0490ah		;4fc7	cd 0a 49	. . I
-	jr nz,l4ffbh		;4fca	20 2f		  /
-	ld l,e			;4fcc	6b		k
-	pop de			;4fcd	d1		.
-	ld a,001h		;4fce	3e 01		> .
-l4fd0h:
-	ex af,af'		;4fd0	08		.
-	jr l4fe5h		;4fd1	18 12		. .
-l4fd3h:
-	ld a,(hl)		;4fd3	7e		~
-	and c			;4fd4	a1		.
-	ld a,(de)		;4fd5	1a		.
-	jr z,l4ffdh		;4fd6	28 25		( %
-	inc a			;4fd8	3c		<
-	jr nz,l504ch		;4fd9	20 71		  q
-l4fdbh:
-	rlc c			;4fdb	cb 01		. .
-	djnz l4fd3h		;4fdd	10 f4		. .
-	inc l			;4fdf	2c		,
-	ld b,(iy-071h)		;4fe0	fd 46 8f	. F .
-	ld c,001h		;4fe3	0e 01		. .
-l4fe5h:
-	ld a,l			;4fe5	7d		}
-	cp (iy-075h)		;4fe6	fd be 8b	. . .
-	jr c,l4fd3h		;4fe9	38 e8		8 .
-	ex af,af'		;4feb	08		.
-	dec a			;4fec	3d		=
-	ld l,a			;4fed	6f		o
-	jr z,l4fd0h		;4fee	28 e0		( .
-	bit 0,(iy-015h)		;4ff0	fd cb eb 46	. . . F
-	jr nz,l502ah		;4ff4	20 34		  4
-	call sub_508ch		;4ff6	cd 8c 50	. . P
-	ld a,01bh		;4ff9	3e 1b		> .
-l4ffbh:
-	jr l503dh		;4ffb	18 40		. @
-l4ffdh:
-	inc a			;4ffd	3c		<
-	jr nz,l5043h		;4ffe	20 43		  C
-	ld a,l			;5000	7d		}
-	ld (de),a		;5001	12		.
-	inc de			;5002	13		.
-	ld a,(iy-071h)		;5003	fd 7e 8f	. ~ .
-	sub b			;5006	90		.
-	rrca			;5007	0f		.
-	rrca			;5008	0f		.
-	rrca			;5009	0f		.
-	dec a			;500a	3d		=
-l500bh:
-	inc a			;500b	3c		<
-	ld (de),a		;500c	12		.
-	dec de			;500d	1b		.
-	ld a,(hl)		;500e	7e		~
-	or c			;500f	b1		.
-	ld (hl),a		;5010	77		w
-	ex (sp),hl		;5011	e3		.
-	dec hl			;5012	2b		+
-	ld a,h			;5013	7c		|
-	or l			;5014	b5		.
-	ex (sp),hl		;5015	e3		.
-	jr nz,l4fdbh		;5016	20 c3		  .
-	ld a,(iy-015h)		;5018	fd 7e eb	. ~ .
-	and 003h		;501b	e6 03		. .
-	jr nz,l502ah		;501d	20 0b		  .
-	ex (sp),hl		;501f	e3		.
-	inc hl			;5020	23		#
-	inc hl			;5021	23		#
-	inc hl			;5022	23		#
-	ex (sp),hl		;5023	e3		.
-	set 0,(iy-015h)		;5024	fd cb eb c6	. . . .
-	jr l4fdbh		;5028	18 b1		. .
-l502ah:
-	res 0,(iy-015h)		;502a	fd cb eb 86	. . . .
-	call sub_508ch		;502e	cd 8c 50	. . P
-	pop af			;5031	f1		.
-	pop af			;5032	f1		.
-sub_5033h:
-	call 0492fh		;5033	cd 2f 49	. / I
-sub_5036h:
-	jr nz,l503dh		;5036	20 05		  .
-	bit 4,(hl)		;5038	cb 66		. f
-	ret nz			;503a	c0		.
-	ld a,02ch		;503b	3e 2c		> ,
-l503dh:
-	call 04c20h		;503d	cd 20 4c	.   L
-	jp 049cdh		;5040	c3 cd 49	. . I
-l5043h:
-	inc de			;5043	13		.
-	ld a,(de)		;5044	1a		.
-	inc a			;5045	3c		<
-	and 01fh		;5046	e6 1f		. .
-	ld a,(de)		;5048	1a		.
-	jr nz,l500bh		;5049	20 c0		  .
-	dec de			;504b	1b		.
-l504ch:
-	inc de			;504c	13		.
-	inc de			;504d	13		.
-	ld a,(de)		;504e	1a		.
-	inc a			;504f	3c		<
-	jr z,l4fd3h		;5050	28 81		( .
-	bit 0,(iy-015h)		;5052	fd cb eb 46	. . . F
-	jr nz,l502ah		;5056	20 d2		  .
-	push hl			;5058	e5		.
-	push bc			;5059	c5		.
-	call sub_508ch		;505a	cd 8c 50	. . P
-	ld b,000h		;505d	06 00		. .
-	ld l,b			;505f	68		h
-	push bc			;5060	c5		.
-	call sub_50cfh		;5061	cd cf 50	. . P
-	jr nz,l503dh		;5064	20 d7		  .
-	ld c,a			;5066	4f		O
-	ld (hl),090h		;5067	36 90		6 .
-	inc hl			;5069	23		#
-	pop de			;506a	d1		.
-	ld (hl),d		;506b	72		r
-	call sub_50aeh		;506c	cd ae 50	. . P
-	ld a,d			;506f	7a		z
-	call sub_5033h		;5070	cd 33 50	. 3 P
-	add a,01fh		;5073	c6 1f		. .
-	ld l,a			;5075	6f		o
-	ld (hl),c		;5076	71		q
-	dec hl			;5077	2b		+
-	ld (hl),0feh		;5078	36 fe		6 .
-	call sub_50aeh		;507a	cd ae 50	. . P
-	ld a,c			;507d	79		y
-	ld (0505eh),a		;507e	32 5e 50	2 ^ P
-	call sub_5033h		;5081	cd 33 50	. 3 P
-	call sub_50b4h		;5084	cd b4 50	. . P
-	pop bc			;5087	c1		.
-	pop de			;5088	d1		.
-	jp l4fc5h		;5089	c3 c5 4f	. . O
-sub_508ch:
-	call sub_50aeh		;508c	cd ae 50	. . P
-	ld a,(0505eh)		;508f	3a 5e 50	: ^ P
-	call sub_5033h		;5092	cd 33 50	. 3 P
-	add a,016h		;5095	c6 16		. .
-	bit 7,(hl)		;5097	cb 7e		. ~
-	ld l,a			;5099	6f		o
-	push hl			;509a	e5		.
-	push ix			;509b	dd e5		. .
-	pop hl			;509d	e1		.
-	ld bc,0000eh		;509e	01 0e 00	. . .
-	add hl,bc		;50a1	09		.
-	ld de,051adh		;50a2	11 ad 51	. . Q
-	push de			;50a5	d5		.
-	call z,sub_4f79h	;50a6	cc 79 4f	. y O
-	pop hl			;50a9	e1		.
-	pop de			;50aa	d1		.
-	call sub_4f7ah		;50ab	cd 7a 4f	. z O
-sub_50aeh:
-	call 0491fh		;50ae	cd 1f 49	. . I
-	ret z			;50b1	c8		.
-	jr l503dh		;50b2	18 89		. .
-sub_50b4h:
-	add a,016h		;50b4	c6 16		. .
-	ld l,a			;50b6	6f		o
-	ld de,051adh		;50b7	11 ad 51	. . Q
-	call sub_4f7ah		;50ba	cd 7a 4f	. z O
-	ex de,hl		;50bd	eb		.
-	ld (hl),0feh		;50be	36 fe		6 .
-	rrca			;50c0	0f		.
-	ld b,a			;50c1	47		G
-l50c2h:
-	dec hl			;50c2	2b		+
-	dec hl			;50c3	2b		+
-	ld a,(hl)		;50c4	7e		~
-	inc a			;50c5	3c		<
-	ret nz			;50c6	c0		.
-	djnz l50c2h		;50c7	10 f9		. .
-	ret			;50c9	c9		.
-l50cah:
-	ld a,d			;50ca	7a		z
-	call 04776h		;50cb	cd 76 47	. v G
-	ret nz			;50ce	c0		.
-sub_50cfh:
-	ex de,hl		;50cf	eb		.
-	ld a,001h		;50d0	3e 01		> .
-	call 0490ah		;50d2	cd 0a 49	. . I
-	ret nz			;50d5	c0		.
-	ld a,(0421fh)		;50d6	3a 1f 42	: . B
-	add a,008h		;50d9	c6 08		. .
-	ld c,a			;50db	4f		O
-	ld a,b			;50dc	78		x
-	and 01fh		;50dd	e6 1f		. .
-l50dfh:
-	sub c			;50df	91		.
-	jr nc,l50dfh		;50e0	30 fd		0 .
-	add a,c			;50e2	81		.
-l50e3h:
-	ld b,a			;50e3	47		G
-	ld l,a			;50e4	6f		o
-	jr l50f2h		;50e5	18 0b		. .
-l50e7h:
-	ld a,(hl)		;50e7	7e		~
-	or a			;50e8	b7		.
-	jr z,l50feh		;50e9	28 13		( .
-	ld a,l			;50eb	7d		}
-	add a,020h		;50ec	c6 20		.  
-	ld l,a			;50ee	6f		o
-	jr nc,l50e7h		;50ef	30 f6		0 .
-	inc l			;50f1	2c		,
-l50f2h:
-	ld a,l			;50f2	7d		}
-	cp c			;50f3	b9		.
-	jr c,l50e7h		;50f4	38 f1		8 .
-	xor a			;50f6	af		.
-	inc b			;50f7	04		.
-	dec b			;50f8	05		.
-	jr nz,l50e3h		;50f9	20 e8		  .
-	or 01ah			;50fb	f6 1a		. .
-	ret			;50fd	c9		.
-l50feh:
-	ld a,(de)		;50fe	1a		.
-	ld (hl),a		;50ff	77		w
-	ld c,l			;5100	4d		M
-	call 0491fh		;5101	cd 1f 49	. . I
-	ret nz			;5104	c0		.
-	ld a,c			;5105	79		y
-	call 04936h		;5106	cd 36 49	. 6 I
-	ret nz			;5109	c0		.
-	bit 4,(hl)		;510a	cb 66		. f
-	ld a,02ch		;510c	3e 2c		> ,
-	ret nz			;510e	c0		.
-	ld a,c			;510f	79		y
-sub_5110h:
-	ld bc,00a16h		;5110	01 16 0a	. . .
-	push hl			;5113	e5		.
-l5114h:
-	ld (hl),000h		;5114	36 00		6 .
-	inc hl			;5116	23		#
-	dec c			;5117	0d		.
-	jr nz,l5114h		;5118	20 fa		  .
-l511ah:
-	ld (hl),0ffh		;511a	36 ff		6 .
-	inc hl			;511c	23		#
-	djnz l511ah		;511d	10 fb		. .
-	pop hl			;511f	e1		.
-	ret			;5120	c9		.
-sub_5121h:
-	ld b,008h		;5121	06 08		. .
-sub_5123h:
-	jr nz,l5140h		;5123	20 1b		  .
-	call sub_5146h		;5125	cd 46 51	. F Q
-	jr c,l513bh		;5128	38 11		8 .
-l512ah:
-	ld (hl),a		;512a	77		w
-	inc hl			;512b	23		#
-	call sub_5146h		;512c	cd 46 51	. F Q
-	jr nc,l5139h		;512f	30 08		0 .
-	cp 030h			;5131	fe 30		. 0
-	jr c,l5143h		;5133	38 0e		8 .
-	cp 03ah			;5135	fe 3a		. :
-	jr nc,l5143h		;5137	30 0a		0 .
-l5139h:
-	djnz l512ah		;5139	10 ef		. .
-l513bh:
-	pop af			;513b	f1		.
-	ld a,030h		;513c	3e 30		> 0
-	or a			;513e	b7		.
-	ret			;513f	c9		.
-l5140h:
-	ld (hl),020h		;5140	36 20		6  
-	inc hl			;5142	23		#
-l5143h:
-	djnz l5140h		;5143	10 fb		. .
-	ret			;5145	c9		.
-sub_5146h:
-	inc de			;5146	13		.
-	ld a,(de)		;5147	1a		.
-	call 045b5h		;5148	cd b5 45	. . E
-	cp 041h			;514b	fe 41		. A
-	ret c			;514d	d8		.
-	cp 05fh			;514e	fe 5f		. _
-	ccf			;5150	3f		?
-	ret			;5151	c9		.
-sub_5152h:
-	ld hl,051dfh		;5152	21 df 51	! . Q
-l5155h:
-	push de			;5155	d5		.
-	push bc			;5156	c5		.
-	ld de,0ffffh		;5157	11 ff ff	. . .
-	ld b,008h		;515a	06 08		. .
-l515ch:
-	push bc			;515c	c5		.
-	ld a,e			;515d	7b		{
-	and 007h		;515e	e6 07		. .
-	ld c,a			;5160	4f		O
-	ld a,e			;5161	7b		{
-	rlca			;5162	07		.
-	rlca			;5163	07		.
-	rlca			;5164	07		.
-	xor c			;5165	a9		.
-	rlca			;5166	07		.
-	ld c,a			;5167	4f		O
-	and 0f0h		;5168	e6 f0		. .
-	ld b,a			;516a	47		G
-	ld a,c			;516b	79		y
-	rlca			;516c	07		.
-	and 01fh		;516d	e6 1f		. .
-	xor b			;516f	a8		.
-	xor d			;5170	aa		.
-	ld e,a			;5171	5f		_
-	ld a,c			;5172	79		y
-	and 00fh		;5173	e6 0f		. .
-	ld b,a			;5175	47		G
-	ld a,c			;5176	79		y
-	rlca			;5177	07		.
-	rlca			;5178	07		.
-	rlca			;5179	07		.
-	rlca			;517a	07		.
-	xor b			;517b	a8		.
-	pop bc			;517c	c1		.
-	xor (hl)		;517d	ae		.
-	ld d,a			;517e	57		W
-	ld (hl),020h		;517f	36 20		6  
-	dec hl			;5181	2b		+
-	djnz l515ch		;5182	10 d8		. .
-	ex de,hl		;5184	eb		.
-	pop bc			;5185	c1		.
-	pop de			;5186	d1		.
-	ret			;5187	c9		.
-sub_5188h:
-	push af			;5188	f5		.
-	ld a,(0477ch)		;5189	3a 7c 47	: | G
-	cp 03eh			;518c	fe 3e		. >
-	jr z,l519fh		;518e	28 0f		( .
-	ld hl,(sub_4e09h+1)	;5190	2a 0a 4e	* . N
-	ld a,h			;5193	7c		|
-	cp l			;5194	bd		.
-	jr z,l519fh		;5195	28 08		( .
-	pop af			;5197	f1		.
-	ld hl,037d6h		;5198	21 d6 37	! . 7
-	add a,l			;519b	85		.
-	ld l,a			;519c	6f		o
-	ld a,(hl)		;519d	7e		~
-	push af			;519e	f5		.
-l519fh:
-	pop af			;519f	f1		.
-	jp 047ech		;51a0	c3 ec 47	. . G
-	nop			;51a3	00		.
-	nop			;51a4	00		.
-	nop			;51a5	00		.
-	nop			;51a6	00		.
-	nop			;51a7	00		.
-	nop			;51a8	00		.
-	nop			;51a9	00		.
-	nop			;51aa	00		.
-	nop			;51ab	00		.
-	nop			;51ac	00		.
+DTABH   EQU     37d6h		;drive table, high bytes
+SECBUF  EQU     4200h		;DOS sector buffer
+DIRLEN  EQU     421fh		;length of the directory field
+DFLAG0  EQU     4369h		;DOS flags: DEBUG, CHAINING, BREAK key, RUN-ONLY (Grosser ch.3)
+DSYSAO  EQU     43a1h		;SYSTEM AO: drive for new files
+PARMBF  EQU     4403h		;parameter buffer for DOS-CALL, and the start address for LOAD
+DOSERR  EQU     4409h		;DOS error exit
+m440d   EQU     440dh
+UPCASE  EQU     45b5h		;convert lower case to upper case
+DRVSLX  EQU     476eh		;DRVSEL with the drive taken from (IX+6)
+DRVSEL  EQU     4776h		;select a drive
+DDRVSL  EQU     477ch		;DRVSEL entry, hooked by this port's driver
+DSKTST  EQU     47ech		;select the drive, motor on, test 'disk in ?'
+m486a   EQU     486ah
+DIRSEC  EQU     490ah		;read a sector from the directory
+m491f   EQU     491fh
+FDEGET  EQU     492fh		;fetch a file's FDE from the directory
+GETFDE  EQU     4936h		;fetch a file's FDE from the directory, second entry
+RDFPDE  EQU     494bh		;load the directory sector holding the FPDE (FCB+7) to 4200h, HL to FPDE+0
+m4986   EQU     4986h
+ERRXIT  EQU     49cdh		;error exit, via the emergency exit
+GSYSCL  EQU     4c20h		;clear the GETSYS-running flag in DFLAG0
+SYSLOAD EQU     4c28h		;load a SYS file
+CHKCHR  EQU     4cd5h		;test the character at (HL)
+m4d6e   EQU     4d6eh		;operand byte inside this module -- self-modified code
+m4e0e   EQU     4e0eh		;operand byte inside this module -- self-modified code
+m4f24   EQU     4f24h		;operand byte inside this module -- self-modified code
+m4f46   EQU     4f46h		;operand byte inside this module -- self-modified code
+m4f48   EQU     4f48h		;operand byte inside this module -- self-modified code
+m4f56   EQU     4f56h		;operand byte inside this module -- self-modified code
+m4f58   EQU     4f58h		;operand byte inside this module -- self-modified code
+m4f5e   EQU     4f5eh		;operand byte inside this module -- self-modified code
+m505e   EQU     505eh		;operand byte inside this module -- self-modified code
+m51ad   EQU     51adh
+m51cd   EQU     51cdh
+m51d8   EQU     51d8h
+m51da   EQU     51dah
+m51df   EQU     51dfh
+m51e0   EQU     51e0h
+        ORG     4d00h
+        CP      24H                     ;4d00
+        JP      Z,m4e2e                 ;4d02
+        CP      44H                     ;4d05
+        JP      Z,m4dbd                 ;4d07
+        CP      64H                     ;4d0a
+        JP      Z,m4f82                 ;4d0c
+        CP      84H                     ;4d0f
+        JP      Z,m5155                 ;4d11
+        CP      0A4H                    ;4d14
+        JR      Z,m4d92                 ;4d16
+        CP      0C4H                    ;4d18
+        JR      Z,m4d80                 ;4d1a
+        CP      0E4H                    ;4d1c
+        JR      NZ,m4d2e                ;4d1e
+        DEC     C                       ;4d20
+        JR      Z,m4d32                 ;4d21
+        DEC     C                       ;4d23
+        JP      Z,m50ca                 ;4d24
+        DEC     C                       ;4d27
+        JR      Z,m4d7b                 ;4d28
+        DEC     C                       ;4d2a
+        JP      Z,m4d72                 ;4d2b
+m4d2e   LD      A,2AH                   ;4d2e
+m4d30   OR      A                       ;4d30
+        RET                             ;4d31
+m4d32   PUSH    DE                      ;4d32
+        POP     IX                      ;4d33
+        INC     DE                      ;4d35
+        LD      A,(DE)                  ;4d36
+        AND     07H                     ;4d37
+        CP      03H                     ;4d39
+        LD      A,25H                   ;4d3b
+        JR      NC,m4d30                ;4d3d
+        LD      HL,m4e75                ;4d3f
+        LD      (HL),3EH                ;4d42
+        LD      DE,m51e0                ;4d44
+        CALL    m4e2c                   ;4d47
+        LD      (HL),18H                ;4d4a
+        JR      Z,m4d77                 ;4d4c
+        CP      18H                     ;4d4e
+        CALL    Z,RDFPDE                ;4d50
+        RET     NZ                      ;4d53
+        LD      A,L                     ;4d54
+        ADD     A,05H                   ;4d55
+        LD      L,A                     ;4d57
+        EX      DE,HL                   ;4d58
+        LD      HL,m51cd                ;4d59
+        LD      BC,000BH                ;4d5c
+        LDIR                            ;4d5f
+        CALL    m491f                   ;4d61
+        LD      A,01H                   ;4d64
+        CALL    Z,DIRSEC                ;4d66
+        RET     NZ                      ;4d69
+        LD      L,(IX+07H)              ;4d6a
+        LD      (HL),00H                ;4d6d
+        JP      m491f                   ;4d6f
+m4d72   CALL    m4dbd                   ;4d72
+        RET     NZ                      ;4d75
+        RET     C                       ;4d76
+m4d77   LD      A,35H                   ;4d77
+        OR      A                       ;4d79
+        RET                             ;4d7a
+m4d7b   CALL    CHKCHR                  ;4d7b
+        RET     C                       ;4d7e
+        POP     AF                      ;4d7f
+m4d80   EX      (SP),HL                 ;4d80
+        CALL    m4d92                   ;4d81
+        JP      NZ,DOSERR               ;4d84
+        EX      (SP),HL                 ;4d87
+        LD      A,(DFLAG0)              ;4d88
+        RLCA                            ;4d8b
+        JP      C,m440d                 ;4d8c
+        JP      GSYSCL                  ;4d8f
+m4d92   LD      HL,SECBUF               ;4d92
+        CALL    m4e2c                   ;4d95
+        JR      Z,m4da0                 ;4d98
+        CP      18H                     ;4d9a
+        RET     NZ                      ;4d9c
+        ADD     A,07H                   ;4d9d
+        RET                             ;4d9f
+m4da0   EX      DE,HL                   ;4da0
+        INC     HL                      ;4da1
+        LD      A,(HL)                  ;4da2
+        PUSH    AF                      ;4da3
+        PUSH    HL                      ;4da4
+        AND     07H                     ;4da5
+        LD      B,A                     ;4da7
+        LD      A,06H                   ;4da8
+        CP      B                       ;4daa
+        LD      A,25H                   ;4dab
+        LD      (HL),2DH                ;4dad
+        DEC     HL                      ;4daf
+        CALL    NC,SYSLOAD              ;4db0
+        LD      (PARMBF),HL             ;4db3
+        EX      DE,HL                   ;4db6
+        POP     HL                      ;4db7
+        POP     BC                      ;4db8
+        LD      (HL),B                  ;4db9
+        DEC     HL                      ;4dba
+        EX      DE,HL                   ;4dbb
+        RET                             ;4dbc
+m4dbd   CALL    m4e2e                   ;4dbd
+        RET     Z                       ;4dc0
+        CP      18H                     ;4dc1
+        RET     NZ                      ;4dc3
+        CALL    m4986                   ;4dc4
+        LD      BC,(m4e09+1)            ;4dc7
+        LD      A,B                     ;4dcb
+        CP      C                       ;4dcc
+        JR      Z,m4dd2                 ;4dcd
+        LD      A,(DSYSAO)              ;4dcf
+m4dd2   LD      (m4e0e),A               ;4dd2
+        CALL    DSKTST                  ;4dd5
+        JR      NZ,m4de3                ;4dd8
+        LD      HL,m4d6e                ;4dda
+        LD      B,(HL)                  ;4ddd
+        CALL    m50cf                   ;4dde
+        JR      Z,m4dea                 ;4de1
+m4de3   LD      E,1AH                   ;4de3
+        CALL    m4e09                   ;4de5
+        JR      m4dd2                   ;4de8
+m4dea   LD      (m4f56),A               ;4dea
+        LD      (HL),10H                ;4ded
+        CALL    m4e1f                   ;4def
+        LD      A,(m4f5e)               ;4df2
+        LD      (HL),A                  ;4df5
+        INC     HL                      ;4df6
+        EX      DE,HL                   ;4df7
+        LD      HL,m51cd                ;4df8
+        LD      BC,000FH                ;4dfb
+        LDIR                            ;4dfe
+        CALL    m491f                   ;4e00
+        RET     NZ                      ;4e03
+        CALL    m4f2e                   ;4e04
+        SCF                             ;4e07
+        RET                             ;4e08
+m4e09   LD      HL,0000H                ;4e09
+        LD      D,A                     ;4e0c
+        LD      A,00H                   ;4e0d
+        INC     A                       ;4e0f
+        CP      L                       ;4e10
+        RET     C                       ;4e11
+        POP     HL                      ;4e12
+        JR      Z,m4e18                 ;4e13
+        LD      A,D                     ;4e15
+        OR      A                       ;4e16
+        RET     NZ                      ;4e17
+m4e18   LD      A,E                     ;4e18
+        OR      A                       ;4e19
+        RET                             ;4e1a
+m4e1b   LD      A,20H                   ;4e1b
+        OR      A                       ;4e1d
+        RET                             ;4e1e
+m4e1f   INC     HL                      ;4e1f
+        LD      A,(HL)                  ;4e20
+        LD      (m4f46),A               ;4e21
+        INC     HL                      ;4e24
+        INC     HL                      ;4e25
+        LD      A,(HL)                  ;4e26
+        LD      (m4f58),A               ;4e27
+        INC     HL                      ;4e2a
+        RET                             ;4e2b
+m4e2c   LD      B,00H                   ;4e2c
+m4e2e   CALL    m4986                   ;4e2e
+        LD      (m4f48),HL              ;4e31
+        LD      A,B                     ;4e34
+        LD      (m4f5e),A               ;4e35
+        LD      HL,m51cd                ;4e38
+        DEC     DE                      ;4e3b
+        XOR     A                       ;4e3c
+        CALL    m5121                   ;4e3d
+        CP      2FH                     ;4e40
+        LD      B,03H                   ;4e42
+        CALL    m5123                   ;4e44
+        CP      2EH                     ;4e47
+        CALL    m5121                   ;4e49
+        LD      B,00H                   ;4e4c
+        LD      C,(IY+1FH)              ;4e4e
+        CP      3AH                     ;4e51
+        JR      NZ,m4e75                ;4e53
+        INC     DE                      ;4e55
+        LD      A,(DE)                  ;4e56
+        SUB     30H                     ;4e57
+        CP      0AH                     ;4e59
+        JR      NC,m4e1b                ;4e5b
+m4e5d   LD      C,A                     ;4e5d
+        INC     DE                      ;4e5e
+        LD      A,(DE)                  ;4e5f
+        SUB     30H                     ;4e60
+        CP      0AH                     ;4e62
+        JR      NC,m4e74                ;4e64
+        LD      L,A                     ;4e66
+        LD      A,C                     ;4e67
+        LD      B,09H                   ;4e68
+m4e6a   ADD     A,C                     ;4e6a
+        JR      C,m4e1b                 ;4e6b
+        DJNZ    m4e6a                   ;4e6d
+        ADD     A,L                     ;4e6f
+        JR      NC,m4e5d                ;4e70
+        JR      m4e1b                   ;4e72
+m4e74   LD      B,C                     ;4e74
+m4e75   JR      m4e7f                   ;4e75
+        LD      A,C                     ;4e77
+        CP      B                       ;4e78
+        JR      Z,m4e1b                 ;4e79
+        LD      B,(IY-78H)              ;4e7b
+        LD      C,B                     ;4e7e
+m4e7f   LD      (m4e09+1),BC            ;4e7f
+        PUSH    BC                      ;4e83
+        CALL    m5152                   ;4e84
+        LD      (m51d8),HL              ;4e87
+        LD      (m51da),HL              ;4e8a
+        LD      HL,m51cd                ;4e8d
+        LD      B,0BH                   ;4e90
+        XOR     A                       ;4e92
+m4e93   XOR     (HL)                    ;4e93
+        INC     HL                      ;4e94
+        RLCA                            ;4e95
+        DJNZ    m4e93                   ;4e96
+        JR      NZ,m4e9b                ;4e98
+        INC     A                       ;4e9a
+m4e9b   LD      (m4d6e),A               ;4e9b
+        POP     AF                      ;4e9e
+m4e9f   LD      (m4e0e),A               ;4e9f
+        CALL    m5188                   ;4ea2
+        JR      Z,m4eae                 ;4ea5
+m4ea7   LD      E,18H                   ;4ea7
+        CALL    m4e09                   ;4ea9
+        JR      m4e9f                   ;4eac
+m4eae   LD      DE,m51ad                ;4eae
+        LD      BC,001FH                ;4eb1
+m4eb4   LD      A,B                     ;4eb4
+        SUB     C                       ;4eb5
+        JR      Z,m4ea7                 ;4eb6
+        LD      A,01H                   ;4eb8
+        CALL    DIRSEC                  ;4eba
+        RET     NZ                      ;4ebd
+        LD      A,B                     ;4ebe
+m4ebf   LD      B,A                     ;4ebf
+        LD      (DE),A                  ;4ec0
+        LD      L,A                     ;4ec1
+        LD      A,E                     ;4ec2
+        CP      0CCH                    ;4ec3
+        JR      Z,m4edd                 ;4ec5
+        LD      A,(m4d6e)               ;4ec7
+        CP      (HL)                    ;4eca
+        JR      NZ,m4ece                ;4ecb
+        INC     DE                      ;4ecd
+m4ece   LD      A,B                     ;4ece
+        ADD     A,20H                   ;4ecf
+        JR      NC,m4ebf                ;4ed1
+        INC     A                       ;4ed3
+        CP      C                       ;4ed4
+        LD      B,A                     ;4ed5
+        JR      C,m4ebf                 ;4ed6
+m4ed8   LD      A,E                     ;4ed8
+        CP      0ADH                    ;4ed9
+        JR      Z,m4eb4                 ;4edb
+m4edd   DEC     DE                      ;4edd
+        LD      A,(DE)                  ;4ede
+        LD      (m4f56),A               ;4edf
+        CALL    FDEGET                  ;4ee2
+        RET     NZ                      ;4ee5
+        PUSH    DE                      ;4ee6
+        PUSH    BC                      ;4ee7
+        LD      A,(HL)                  ;4ee8
+        LD      (m4f24),A               ;4ee9
+        AND     90H                     ;4eec
+        CP      10H                     ;4eee
+        JR      NZ,m4f00                ;4ef0
+        CALL    m4e1f                   ;4ef2
+        LD      DE,m51cd                ;4ef5
+        LD      B,0BH                   ;4ef8
+m4efa   INC     HL                      ;4efa
+        LD      A,(DE)                  ;4efb
+        CP      (HL)                    ;4efc
+        INC     DE                      ;4efd
+        JR      Z,m4f04                 ;4efe
+m4f00   POP     BC                      ;4f00
+        POP     DE                      ;4f01
+        JR      m4ed8                   ;4f02
+m4f04   DJNZ    m4efa                   ;4f04
+        POP     BC                      ;4f06
+        POP     DE                      ;4f07
+        INC     HL                      ;4f08
+        LD      E,(HL)                  ;4f09
+        INC     HL                      ;4f0a
+        LD      D,(HL)                  ;4f0b
+        INC     HL                      ;4f0c
+        LD      C,(HL)                  ;4f0d
+        INC     HL                      ;4f0e
+        LD      B,(HL)                  ;4f0f
+        INC     HL                      ;4f10
+        PUSH    HL                      ;4f11
+        LD      HL,(m51d8)              ;4f12
+        BIT     7,(IY-14H)              ;4f15
+        JR      Z,m4f2f                 ;4f19
+        OR      A                       ;4f1b
+        SBC     HL,DE                   ;4f1c
+        JR      Z,m4f2f                 ;4f1e
+        ADD     HL,DE                   ;4f20
+        LD      A,07H                   ;4f21
+        AND     00H                     ;4f23
+        SBC     HL,BC                   ;4f25
+        JR      Z,m4f30                 ;4f27
+        POP     HL                      ;4f29
+        LD      A,19H                   ;4f2a
+        OR      A                       ;4f2c
+        RET                             ;4f2d
+m4f2e   PUSH    DE                      ;4f2e
+m4f2f   XOR     A                       ;4f2f
+m4f30   PUSH    IX                      ;4f30
+        POP     HL                      ;4f32
+        CALL    m5110                   ;4f33
+        LD      (HL),80H                ;4f36
+        INC     HL                      ;4f38
+        OR      28H                     ;4f39
+        LD      (HL),A                  ;4f3b
+        LD      A,(m4f5e)               ;4f3c
+        OR      A                       ;4f3f
+        JR      Z,m4f44                 ;4f40
+        SET     7,(HL)                  ;4f42
+m4f44   INC     HL                      ;4f44
+        LD      (HL),00H                ;4f45
+        LD      DE,0000H                ;4f47
+        INC     HL                      ;4f4a
+        LD      (HL),E                  ;4f4b
+        INC     HL                      ;4f4c
+        LD      (HL),D                  ;4f4d
+        INC     HL                      ;4f4e
+        INC     HL                      ;4f4f
+        LD      A,(IY-78H)              ;4f50
+        LD      (HL),A                  ;4f53
+        INC     HL                      ;4f54
+        LD      (HL),00H                ;4f55
+        LD      A,00H                   ;4f57
+        INC     HL                      ;4f59
+        OR      A                       ;4f5a
+        LD      (HL),A                  ;4f5b
+        INC     HL                      ;4f5c
+        LD      (HL),00H                ;4f5d
+        INC     HL                      ;4f5f
+        INC     HL                      ;4f60
+        INC     HL                      ;4f61
+        POP     DE                      ;4f62
+        LD      A,(DE)                  ;4f63
+        INC     DE                      ;4f64
+        JR      Z,m4f69                 ;4f65
+        SUB     01H                     ;4f67
+m4f69   LD      (HL),A                  ;4f69
+        INC     HL                      ;4f6a
+        LD      A,(DE)                  ;4f6b
+        SBC     A,00H                   ;4f6c
+        LD      (HL),A                  ;4f6e
+        INC     DE                      ;4f6f
+        INC     HL                      ;4f70
+        LD      A,2CH                   ;4f71
+        RET     C                       ;4f73
+        CALL    m4f79                   ;4f74
+        XOR     A                       ;4f77
+        RET                             ;4f78
+m4f79   EX      DE,HL                   ;4f79
+m4f7a   LD      A,08H                   ;4f7a
+        LD      C,A                     ;4f7c
+        LD      B,00H                   ;4f7d
+        LDIR                            ;4f7f
+        RET                             ;4f81
+m4f82   LD      A,3DH                   ;4f82
+        BIT     7,(IX+02H)              ;4f84
+        CALL    Z,DRVSLX                ;4f88
+        JR      NZ,m4ffb                ;4f8b
+        LD      A,(m486a)               ;4f8d
+        LD      (m505e),A               ;4f90
+        PUSH    AF                      ;4f93
+        CALL    GETFDE                  ;4f94
+        CALL    m5036                   ;4f97
+        INC     DE                      ;4f9a
+        PUSH    DE                      ;4f9b
+        CALL    m50b4                   ;4f9c
+        LD      B,(IY-71H)              ;4f9f
+        LD      C,01H                   ;4fa2
+        LD      E,(HL)                  ;4fa4
+        INC     E                       ;4fa5
+        JR      Z,m4fc5                 ;4fa6
+        DEC     E                       ;4fa8
+        DEC     E                       ;4fa9
+        INC     HL                      ;4faa
+        LD      A,(HL)                  ;4fab
+        AND     1FH                     ;4fac
+        LD      D,A                     ;4fae
+        INC     D                       ;4faf
+        LD      A,(HL)                  ;4fb0
+        AND     0E0H                    ;4fb1
+        DEC     HL                      ;4fb3
+        RLCA                            ;4fb4
+        RLCA                            ;4fb5
+        RLCA                            ;4fb6
+        ADD     A,D                     ;4fb7
+m4fb8   INC     E                       ;4fb8
+        SUB     B                       ;4fb9
+        JR      NC,m4fb8                ;4fba
+        ADD     A,B                     ;4fbc
+        JR      Z,m4fc5                 ;4fbd
+m4fbf   RLC     C                       ;4fbf
+        DEC     B                       ;4fc1
+        DEC     A                       ;4fc2
+        JR      NZ,m4fbf                ;4fc3
+m4fc5   PUSH    HL                      ;4fc5
+        XOR     A                       ;4fc6
+        CALL    DIRSEC                  ;4fc7
+        JR      NZ,m4ffb                ;4fca
+        LD      L,E                     ;4fcc
+        POP     DE                      ;4fcd
+        LD      A,01H                   ;4fce
+m4fd0   EX      AF,AF'                  ;4fd0
+        JR      m4fe5                   ;4fd1
+m4fd3   LD      A,(HL)                  ;4fd3
+        AND     C                       ;4fd4
+        LD      A,(DE)                  ;4fd5
+        JR      Z,m4ffd                 ;4fd6
+        INC     A                       ;4fd8
+        JR      NZ,m504c                ;4fd9
+m4fdb   RLC     C                       ;4fdb
+        DJNZ    m4fd3                   ;4fdd
+        INC     L                       ;4fdf
+        LD      B,(IY-71H)              ;4fe0
+        LD      C,01H                   ;4fe3
+m4fe5   LD      A,L                     ;4fe5
+        CP      (IY-75H)                ;4fe6
+        JR      C,m4fd3                 ;4fe9
+        EX      AF,AF'                  ;4feb
+        DEC     A                       ;4fec
+        LD      L,A                     ;4fed
+        JR      Z,m4fd0                 ;4fee
+        BIT     0,(IY-15H)              ;4ff0
+        JR      NZ,m502a                ;4ff4
+        CALL    m508c                   ;4ff6
+        LD      A,1BH                   ;4ff9
+m4ffb   JR      m503d                   ;4ffb
+m4ffd   INC     A                       ;4ffd
+        JR      NZ,m5043                ;4ffe
+        LD      A,L                     ;5000
+        LD      (DE),A                  ;5001
+        INC     DE                      ;5002
+        LD      A,(IY-71H)              ;5003
+        SUB     B                       ;5006
+        RRCA                            ;5007
+        RRCA                            ;5008
+        RRCA                            ;5009
+        DEC     A                       ;500a
+m500b   INC     A                       ;500b
+        LD      (DE),A                  ;500c
+        DEC     DE                      ;500d
+        LD      A,(HL)                  ;500e
+        OR      C                       ;500f
+        LD      (HL),A                  ;5010
+        EX      (SP),HL                 ;5011
+        DEC     HL                      ;5012
+        LD      A,H                     ;5013
+        OR      L                       ;5014
+        EX      (SP),HL                 ;5015
+        JR      NZ,m4fdb                ;5016
+        LD      A,(IY-15H)              ;5018
+        AND     03H                     ;501b
+        JR      NZ,m502a                ;501d
+        EX      (SP),HL                 ;501f
+        INC     HL                      ;5020
+        INC     HL                      ;5021
+        INC     HL                      ;5022
+        EX      (SP),HL                 ;5023
+        SET     0,(IY-15H)              ;5024
+        JR      m4fdb                   ;5028
+m502a   RES     0,(IY-15H)              ;502a
+        CALL    m508c                   ;502e
+        POP     AF                      ;5031
+        POP     AF                      ;5032
+m5033   CALL    FDEGET                  ;5033
+m5036   JR      NZ,m503d                ;5036
+        BIT     4,(HL)                  ;5038
+        RET     NZ                      ;503a
+        LD      A,2CH                   ;503b
+m503d   CALL    GSYSCL                  ;503d
+        JP      ERRXIT                  ;5040
+m5043   INC     DE                      ;5043
+        LD      A,(DE)                  ;5044
+        INC     A                       ;5045
+        AND     1FH                     ;5046
+        LD      A,(DE)                  ;5048
+        JR      NZ,m500b                ;5049
+        DEC     DE                      ;504b
+m504c   INC     DE                      ;504c
+        INC     DE                      ;504d
+        LD      A,(DE)                  ;504e
+        INC     A                       ;504f
+        JR      Z,m4fd3                 ;5050
+        BIT     0,(IY-15H)              ;5052
+        JR      NZ,m502a                ;5056
+        PUSH    HL                      ;5058
+        PUSH    BC                      ;5059
+        CALL    m508c                   ;505a
+        LD      B,00H                   ;505d
+        LD      L,B                     ;505f
+        PUSH    BC                      ;5060
+        CALL    m50cf                   ;5061
+        JR      NZ,m503d                ;5064
+        LD      C,A                     ;5066
+        LD      (HL),90H                ;5067
+        INC     HL                      ;5069
+        POP     DE                      ;506a
+        LD      (HL),D                  ;506b
+        CALL    m50ae                   ;506c
+        LD      A,D                     ;506f
+        CALL    m5033                   ;5070
+        ADD     A,1FH                   ;5073
+        LD      L,A                     ;5075
+        LD      (HL),C                  ;5076
+        DEC     HL                      ;5077
+        LD      (HL),0FEH               ;5078
+        CALL    m50ae                   ;507a
+        LD      A,C                     ;507d
+        LD      (m505e),A               ;507e
+        CALL    m5033                   ;5081
+        CALL    m50b4                   ;5084
+        POP     BC                      ;5087
+        POP     DE                      ;5088
+        JP      m4fc5                   ;5089
+m508c   CALL    m50ae                   ;508c
+        LD      A,(m505e)               ;508f
+        CALL    m5033                   ;5092
+        ADD     A,16H                   ;5095
+        BIT     7,(HL)                  ;5097
+        LD      L,A                     ;5099
+        PUSH    HL                      ;509a
+        PUSH    IX                      ;509b
+        POP     HL                      ;509d
+        LD      BC,000EH                ;509e
+        ADD     HL,BC                   ;50a1
+        LD      DE,m51ad                ;50a2
+        PUSH    DE                      ;50a5
+        CALL    Z,m4f79                 ;50a6
+        POP     HL                      ;50a9
+        POP     DE                      ;50aa
+        CALL    m4f7a                   ;50ab
+m50ae   CALL    m491f                   ;50ae
+        RET     Z                       ;50b1
+        JR      m503d                   ;50b2
+m50b4   ADD     A,16H                   ;50b4
+        LD      L,A                     ;50b6
+        LD      DE,m51ad                ;50b7
+        CALL    m4f7a                   ;50ba
+        EX      DE,HL                   ;50bd
+        LD      (HL),0FEH               ;50be
+        RRCA                            ;50c0
+        LD      B,A                     ;50c1
+m50c2   DEC     HL                      ;50c2
+        DEC     HL                      ;50c3
+        LD      A,(HL)                  ;50c4
+        INC     A                       ;50c5
+        RET     NZ                      ;50c6
+        DJNZ    m50c2                   ;50c7
+        RET                             ;50c9
+m50ca   LD      A,D                     ;50ca
+        CALL    DRVSEL                  ;50cb
+        RET     NZ                      ;50ce
+m50cf   EX      DE,HL                   ;50cf
+        LD      A,01H                   ;50d0
+        CALL    DIRSEC                  ;50d2
+        RET     NZ                      ;50d5
+        LD      A,(DIRLEN)              ;50d6
+        ADD     A,08H                   ;50d9
+        LD      C,A                     ;50db
+        LD      A,B                     ;50dc
+        AND     1FH                     ;50dd
+m50df   SUB     C                       ;50df
+        JR      NC,m50df                ;50e0
+        ADD     A,C                     ;50e2
+m50e3   LD      B,A                     ;50e3
+        LD      L,A                     ;50e4
+        JR      m50f2                   ;50e5
+m50e7   LD      A,(HL)                  ;50e7
+        OR      A                       ;50e8
+        JR      Z,m50fe                 ;50e9
+        LD      A,L                     ;50eb
+        ADD     A,20H                   ;50ec
+        LD      L,A                     ;50ee
+        JR      NC,m50e7                ;50ef
+        INC     L                       ;50f1
+m50f2   LD      A,L                     ;50f2
+        CP      C                       ;50f3
+        JR      C,m50e7                 ;50f4
+        XOR     A                       ;50f6
+        INC     B                       ;50f7
+        DEC     B                       ;50f8
+        JR      NZ,m50e3                ;50f9
+        OR      1AH                     ;50fb
+        RET                             ;50fd
+m50fe   LD      A,(DE)                  ;50fe
+        LD      (HL),A                  ;50ff
+        LD      C,L                     ;5100
+        CALL    m491f                   ;5101
+        RET     NZ                      ;5104
+        LD      A,C                     ;5105
+        CALL    GETFDE                  ;5106
+        RET     NZ                      ;5109
+        BIT     4,(HL)                  ;510a
+        LD      A,2CH                   ;510c
+        RET     NZ                      ;510e
+        LD      A,C                     ;510f
+m5110   LD      BC,0A16H                ;5110
+        PUSH    HL                      ;5113
+m5114   LD      (HL),00H                ;5114
+        INC     HL                      ;5116
+        DEC     C                       ;5117
+        JR      NZ,m5114                ;5118
+m511a   LD      (HL),0FFH               ;511a
+        INC     HL                      ;511c
+        DJNZ    m511a                   ;511d
+        POP     HL                      ;511f
+        RET                             ;5120
+m5121   LD      B,08H                   ;5121
+m5123   JR      NZ,m5140                ;5123
+        CALL    m5146                   ;5125
+        JR      C,m513b                 ;5128
+m512a   LD      (HL),A                  ;512a
+        INC     HL                      ;512b
+        CALL    m5146                   ;512c
+        JR      NC,m5139                ;512f
+        CP      30H                     ;5131
+        JR      C,m5143                 ;5133
+        CP      3AH                     ;5135
+        JR      NC,m5143                ;5137
+m5139   DJNZ    m512a                   ;5139
+m513b   POP     AF                      ;513b
+        LD      A,30H                   ;513c
+        OR      A                       ;513e
+        RET                             ;513f
+m5140   LD      (HL),20H                ;5140
+        INC     HL                      ;5142
+m5143   DJNZ    m5140                   ;5143
+        RET                             ;5145
+m5146   INC     DE                      ;5146
+        LD      A,(DE)                  ;5147
+        CALL    UPCASE                  ;5148
+        CP      41H                     ;514b
+        RET     C                       ;514d
+        CP      5FH                     ;514e
+        CCF                             ;5150
+        RET                             ;5151
+m5152   LD      HL,m51df                ;5152
+m5155   PUSH    DE                      ;5155
+        PUSH    BC                      ;5156
+        LD      DE,0FFFFH               ;5157
+        LD      B,08H                   ;515a
+m515c   PUSH    BC                      ;515c
+        LD      A,E                     ;515d
+        AND     07H                     ;515e
+        LD      C,A                     ;5160
+        LD      A,E                     ;5161
+        RLCA                            ;5162
+        RLCA                            ;5163
+        RLCA                            ;5164
+        XOR     C                       ;5165
+        RLCA                            ;5166
+        LD      C,A                     ;5167
+        AND     0F0H                    ;5168
+        LD      B,A                     ;516a
+        LD      A,C                     ;516b
+        RLCA                            ;516c
+        AND     1FH                     ;516d
+        XOR     B                       ;516f
+        XOR     D                       ;5170
+        LD      E,A                     ;5171
+        LD      A,C                     ;5172
+        AND     0FH                     ;5173
+        LD      B,A                     ;5175
+        LD      A,C                     ;5176
+        RLCA                            ;5177
+        RLCA                            ;5178
+        RLCA                            ;5179
+        RLCA                            ;517a
+        XOR     B                       ;517b
+        POP     BC                      ;517c
+        XOR     (HL)                    ;517d
+        LD      D,A                     ;517e
+        LD      (HL),20H                ;517f
+        DEC     HL                      ;5181
+        DJNZ    m515c                   ;5182
+        EX      DE,HL                   ;5184
+        POP     BC                      ;5185
+        POP     DE                      ;5186
+        RET                             ;5187
+m5188   PUSH    AF                      ;5188
+        LD      A,(DDRVSL)              ;5189
+        CP      3EH                     ;518c
+        JR      Z,m519f                 ;518e
+        LD      HL,(m4e09+1)            ;5190
+        LD      A,H                     ;5193
+        CP      L                       ;5194
+        JR      Z,m519f                 ;5195
+        POP     AF                      ;5197
+        LD      HL,DTABH                ;5198
+        ADD     A,L                     ;519b
+        LD      L,A                     ;519c
+        LD      A,(HL)                  ;519d
+        PUSH    AF                      ;519e
+m519f   POP     AF                      ;519f
+        JP      DSKTST                  ;51a0
+        NOP                             ;51a3
+        NOP                             ;51a4
+        NOP                             ;51a5
+        NOP                             ;51a6
+        NOP                             ;51a7
+        NOP                             ;51a8
+        NOP                             ;51a9
+        NOP                             ;51aa
+        NOP                             ;51ab
+        NOP                             ;51ac
+        END     4d00h

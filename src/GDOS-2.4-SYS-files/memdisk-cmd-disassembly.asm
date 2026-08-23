@@ -21,16 +21,14 @@
 ;   0x040e  LOAD   67B  5200..5242
 ;   0x0455  ENTRY 3000
 ;
-; Dig into why MEMDISK/CMD to trace down why it fails to initialise a RAM disk over this project's own OMTI hard-disk
-; fails to initialise a RAM disk over this project's own OMTI hard-disk
-; port -- "Bauteil nicht erreichbar" -- is what produced this disassembly.
-; Findings below are annotated where traced; several blocks (the I/H/F
-; argument switches, the dbanks bit 2/3 block at 3061h, the two low-RAM
-; copy helpers at 3103h/312Dh, the DRVSEL/transfer hooks at 31C7h-3230h)
-; were read but not traced to the same depth and are marked as such --
-; not yet confirmed, not guessed as confirmed either.
+; Disassembled while tracking down a "Bauteil nicht erreichbar" failure when
+; MEMDISK initialised its RAM disk over the OMTI port. Annotated where
+; traced; several blocks -- the I/H/F argument switches, the dbanks bit 2/3
+; block at 3061h, the two low-RAM copy helpers at 3103h/312Dh, and the
+; DRVSEL/transfer hooks at 31C7h-3230h -- were read but not traced to the
+; same depth, and are marked where that is so.
 ;
-; [note]   a fact established during debugging, not from any reference.
+; [note]   read off the disassembly, not from any reference.
 
 	ORG	3000h
 
@@ -56,14 +54,14 @@ l3015h:
 				;argument parsing uses -- see that file's own
 				;comment). Z = nothing more on the line.
 	JR	Z,l3042h	;3019  bare "MEMDISK", no argument -> l3042h,
-				;the default-install path this session traced
+				;the default-install path traced here
 	LD	A,(HL)		;301b
 	CP	049h		;301c  'I'
-	JR	Z,l3034h	;301e  MEMDISK I -- not traced this session
+	JR	Z,l3034h	;301e  MEMDISK I -- not traced
 	CP	048h		;3020  'H'
-	JR	Z,l302dh	;3022  MEMDISK H -- not traced this session
+	JR	Z,l302dh	;3022  MEMDISK H -- not traced
 	CP	046h		;3024  'F'
-	JR	Z,l303dh	;3026  MEMDISK F -- not traced this session
+	JR	Z,l303dh	;3026  MEMDISK F -- not traced
 	LD	A,034h		;3028  unrecognised letter
 	JP	04409h		;302a  DOSERR, error 34h ("schlechte
 				;Parameter" per SYS17/SYS's own comment on
@@ -114,7 +112,7 @@ l3042h:
 	JP	Z,l32d9h	;3052  DRVSEL succeeded -> l32d9h, the shared
 				;verify+install continuation (also reached
 				;from elsewhere, see below)
-	LD	HL,036ffh	;3055  dbanks (this project's own driver's own
+	LD	HL,036ffh	;3055  dbanks (the OMTI driver's
 				;banked-RAM-size byte, set by ginit's gini
 				;loop -- see gdos-omti.asm)
 	BIT	2,(HL)		;3058
@@ -143,9 +141,9 @@ l3068h:
 l3078h:
 
 ; dndrv increment, the F9h bit-0 bank-switch (confirmed functionally
-; inert in this emulator's own trs_memory.c model -- see this session's
+; inert in this emulator's own trs_memory.c model -- see the
 ; earlier finding), and the collision itself: 360 bytes of MEMDISK's own
-; resident code copied to F400h, squarely inside this project's driver's
+; resident code copied to F400h, squarely inside the OMTI driver's
 ; own F000h-F69Bh occupancy before the 2026-08-21 shrink, and inside the
 ; relocated gcfg's own old F3D9h-F4D8h slot before the 2026-08-20 move.
 
@@ -190,7 +188,7 @@ l3078h:
 	LD	(0331eh),A	;30bb
 l30beh:
 	LD	(0f42bh),HL	;30be
-	LD	HL,037deh	;30c1  dtab region (this project's driver's
+	LD	HL,037deh	;30c1  dtab region (the OMTI driver's
 				;own dtab EQU 37dfh is one byte higher)
 	LD	DE,037dfh	;30c4
 	LD	BC,00009h	;30c7
@@ -200,10 +198,10 @@ l30beh:
 				;dtabh EQU 37d6h)
 	LD	SP,03400h	;30d2
 
-; A banked-RAM-sizing loop, structurally parallel to this project's own
+; A banked-RAM-sizing loop, structurally parallel to the OMTI driver's
 ; ginit (gdos-omti.asm's gini1-gini3) -- read/complement/compare each bank
 ; to find how much RAM is actually there. Not traced instruction-by-
-; instruction against ginit's own version this session.
+; instruction against ginit's own version.
 
 	IN	A,(0f9h)	;30d5
 	AND	03eh		;30d7
@@ -230,7 +228,7 @@ l30ddh:
 	JP	l32d9h		;3100  on to the shared verify+install tail
 
 ; Two bank-aware LDIR helpers (copy 100h/256 bytes each way across the
-; F9h bank switch), read but not traced against a caller this session --
+; F9h bank switch), read but not traced against a caller --
 ; l3103h is copied to 4000h by the sizing loop above and run from there;
 ; l312dh is not observed called from anywhere in this range.
 
@@ -288,8 +286,8 @@ l314eh:
 	RET			;3159
 
 ; The low-RAM resident stub copied to F400h at 3096h above -- MEMDISK's
-; own equivalent of this project's driver's gstub (gdos-omti.asm). Not
-; traced instruction-by-instruction against gstub this session; the
+; own equivalent of the OMTI driver's gstub (gdos-omti.asm). Not
+; traced instruction-by-instruction against gstub; the
 ; opening bank-select-and-dispatch-on-C shape is visibly the same idea.
 
 l315ah:
@@ -323,7 +321,7 @@ l3178h:
 
 ; A geometry/divide helper, structurally parallel to bootrd.asm's own
 ; divhl / omti.asm's hddiv (same double-divide-and-clamp shape building a
-; CHS-style address). Not traced instruction-by-instruction this session.
+; CHS-style address). Not traced instruction-by-instruction.
 
 	EX	DE,HL		;3183
 	LD	DE,00000h	;3184
@@ -378,8 +376,8 @@ l31c3h:
 
 ; DRVSEL/transfer hook handlers -- MEMDISK's own equivalent of this
 ; project's driver's ghook/gdrvsl/gxfhk (gdos-omti.asm). Not traced
-; instruction-by-instruction against those this session; noted here only
-; because they are exactly the kind of code this project's own gpass fix
+; instruction-by-instruction against those; noted here only
+; because they are exactly the kind of code the OMTI driver's own gpass fix
 ; (2026-08-21) is trying to hand a claimed-but-not-owned drive off to.
 
 	CALL	0f429h		;31c7
@@ -410,11 +408,11 @@ l31dfh:
 	XOR	A		;31fa
 	JR	l31dfh		;31fb
 
-; GETSYS/DOSERR-adjacent setup: forces (47efh) [dmount, this project's
+; GETSYS/DOSERR-adjacent setup: forces (47efh) [dmount, this port's
 ; own EQU], zeroes (4309h) [dmask], installs a jump at F00Eh -- this
 ; project's own driver's ginit entry point is F00Ah, three bytes earlier
 ; -- copies 8 bytes from F402h to 430Ah [dpdrv], and points dpptr (4399h)
-; at 37cch [rpdrv]. All addresses match this project's own driver's own
+; at 37cch [rpdrv]. All addresses match the OMTI driver's
 ; EQU list in gdos-omti.asm exactly, confirming MEMDISK is deliberately
 ; interoperating with this specific driver's own low-RAM layout, not
 ; stock GDOS's Xebec driver's layout.
@@ -442,11 +440,11 @@ l31dfh:
 	XOR	A		;322f
 	RET			;3230
 
-; Entry trampoline, structurally parallel to this project's driver's own
+; Entry trampoline, structurally parallel to the OMTI driver's
 ; gbank/gexit0/gexit1 (gdos-omti.asm) -- self-modified SP save/restore
 ; and a low-RAM stub copy (F4FDh -> 3A00h, 6Bh/107 bytes -- close to but
-; not the same size as this project's own gstub). Not traced
-; instruction-by-instruction against gbank/gexit0/gexit1 this session.
+; not the same size as the OMTI driver's gstub). Not traced
+; instruction-by-instruction against gbank/gexit0/gexit1.
 
 	EX	AF,AF'		;3231
 	DI			;3232
@@ -562,8 +560,8 @@ l32d3h:
 ; first instruction) -- and structurally reachable on its own, since it
 ; re-probes DRVSEL independently rather than trusting the caller blindly.
 ; Ends with a jump to 4405h, not 4409h/DOSERR -- a different stock GDOS
-; entry point, not otherwise seen in this project's own patch set. Not
-; traced past that point this session.
+; entry point, not otherwise seen in this port's patch set. Not
+; traced past that point.
 
 l32d9h:
 	LD	A,002h		;32d9  self-modified to dnflop by 3045h above,
@@ -577,7 +575,7 @@ l32d9h:
 	JR	Z,l32f7h	;32e7
 	LD	DE,00005h	;32e9
 	LD	HL,04200h	;32ec
-	CALL	04630h		;32ef  dxfer (this project's own EQU)
+	CALL	04630h		;32ef  dxfer (the OMTI driver's EQU)
 	CP	006h		;32f2
 	JP	Z,l3399h	;32f4
 l32f7h:
@@ -697,10 +695,10 @@ l33deh:
 
 ; --- separate load record, 5200h-5242h -- reached from 3011h above
 ; ("MEMDISK N"). Uninstall: DRVSEL(0) (a trivial, always-succeeding probe
-; per stock DRVSEL's own A<1 fast path -- see this session's own trace of
+; per stock DRVSEL's own A<1 fast path -- see the own trace of
 ; 4776h in sys0-sys-disassembly.asm), bank-switch, decrement dndrv,
 ; restore dtabh from a backup at 37d7h. Read but not traced
-; instruction-by-instruction this session.
+; instruction-by-instruction.
 
 	ORG	5200h
 

@@ -13,8 +13,8 @@
 ;************************************************************************
 ;
 ; Format follows SYS8-sys-disassembly.asm -- see sys7-sys-disassembly.asm's
-; header for what that means and the same real-toolchain regeneration
-; command (trsload.py --extract 4D00-51E7, then one z80dasm pass) used here.
+; header for what that means and for the same regeneration command
+; (trsload.py --extract 4D00-51E7, then one z80dasm pass) used here.
 ;
 ; Grosser ch.7, "SYS17" row: request codes 33h ("DB SYSTEM, der Anfang
 ; steht in SYS7"), 53h (DB WRDIRP), F3h (Genie-only GAT extension for
@@ -22,7 +22,7 @@
 ; disassembly). Module code 33h & 1Fh = 13h -> SYS-number 19-2 = 17,
 ; confirming this file.
 ;
-; [note]   a fact established this session, not from any prior reference.
+; [note]   read off the disassembly, not from any prior reference.
 
 m0000	EQU	0000h
 m0010	EQU	0010h
@@ -75,7 +75,7 @@ m59d1	EQU	59d1h
 	LD	A,B		;[note] B here is (4308h)'s value, carried in via SYS7's RST 28h call -- not a raw typed digit. See sys7-sys-disassembly.asm.
 	LD	(m4f1c),A
 	CALL	m4e21
-	CALL	m4436		;[note] SYS0-resident stub -> JP 49FCh (READDV). Reads a sector using whatever drive# is currently in (4308h). Same call site this project already patched at SYS0/SYS:50C4h (sys0-sys-disassembly.asm, boot-patch-inventory.md).
+	CALL	m4436		;[note] SYS0-resident stub -> JP 49FCh (READDV). Reads a sector using whatever drive# is currently in (4308h). The same call site this port patches at SYS0/SYS:50C4h.
 	RET	NZ
 	CALL	m4cd5		;[note] shared end-of-parameter/delimiter scanner (4cd5h). Its error path, and this file's own local one a few lines below, both return A=034h -- presumably the DOS error code behind "schlechte Parameter".
 	RET	C
@@ -231,7 +231,7 @@ m4e13	LD	A,(HL)
 	CALL	m4e6b
 	XOR	A
 	RET
-m4e21	LD	A,2H		;[note] CORRECTED this session: an earlier unflattened decode misread this call site as RST 30h. It is not -- see file header.
+m4e21	LD	A,2H		;[note] an earlier unflattened decode misread this call site as RST 30h; it is not.
 	LD	(m4f20),A
 	LD	DE,m4f16
 	RET

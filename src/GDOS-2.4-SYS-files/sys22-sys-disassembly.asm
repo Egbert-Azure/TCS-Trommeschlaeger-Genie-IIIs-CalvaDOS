@@ -31,7 +31,7 @@
 ; Not annotated beyond the dispatch table above -- this module's actual
 ; function (which DOS command(s) it implements) has not been identified.
 ;
-; [note]   a fact established this session, not from any prior reference.
+; [note]   read off the disassembly, not from any prior reference.
 
 m0000	EQU	0000h
 m000f	EQU	000fh
@@ -81,7 +81,7 @@ m7909	EQU	7909h
 m8080	EQU	8080h
 m8341	EQU	8341h
 m8400	EQU	8400h
-mc911	EQU	c911h
+mc911	EQU	0c911h
 	ORG	4D00H
 	CP	38H		;[note] module code 38h & 1Fh = 18h -> SYS-number 24-2 = 22, confirming this file.
 	JP	Z,m4fc7
