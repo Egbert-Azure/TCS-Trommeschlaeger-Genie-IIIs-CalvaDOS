@@ -1,6 +1,6 @@
 # What CalvaDOS actually changes
 
-Stock GDOS 2.4 has no path to a hard disk. Every change is either a byte-level
+Stock GDOS 2.4 has no path to boot from a hard disk. Every change is either a byte-level
 patch to a shipped SYS-file — no source exists, so same-footprint substitutions
 only, each asserting the stock bytes are present before it writes — or a piece
 of this project's own driver that stock never had.
