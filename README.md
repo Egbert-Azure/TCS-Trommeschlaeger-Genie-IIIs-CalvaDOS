@@ -11,7 +11,7 @@ The original CalvaDOS hack is lost. First things first, and Prost!
 
 One known defect is still open — see the issues. Everything else that has been tested works. You can run it via my own sdltrs-MultiHDC emulator which has the OMTI controller aside the XEBEC.
 
-However, this is a reconstruction, not a recovered original. The 1986 CalvaDOS binaries have not turned up, and nothing in this repository claims to be them. Including the boot logo you see in this REEADME it's out of my memory.
+However, this is a reconstruction, not a recovered original. The 1986 CalvaDOS binaries have not turned up, and nothing in this repository claims to be them. Including the boot logo you see in this README it's out of my memory.
 
 ## A little history
 
