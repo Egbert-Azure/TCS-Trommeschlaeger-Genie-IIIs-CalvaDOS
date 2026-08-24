@@ -87,9 +87,8 @@ The `docs/` directory contains the deeper technical material: architecture notes
 
 If you want to go down the rabbit hole, start with:
 
-* `docs/architecture/`
-* `docs/reverse-engineering/`
-* `docs/development/`
+* `docs/artefacts/`
+* `docs/reference`
 
 The repository is not intended to be a perfectly clean historical archive. It is a record of an ongoing attempt to understand a piece of software that disappeared decades ago.
 
@@ -106,7 +105,6 @@ src/        Source code
 ROM/        Boot ROMs and EPROM images
 HDV/        Hard disk images
 DMK/        Floppy disk images
-tools/      Development and analysis tools
 docs/       Documentation
 ```
 
