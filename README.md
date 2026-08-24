@@ -25,7 +25,7 @@ One of those modifications became **CalvaDOS**.
 
 As far as I can tell from what has survived, much of the work was done by **Arnulf Sopp**. He added support for an OMTI hard-disk controller and created the EPROM that allowed GDOS to boot from the hard disk. And, with the particular sense of humor for which Arnulf was known, he called the result *CalvaDOS*.
 
-I always liked what that system could do.
+I always liked what that system could do. And I'm glad—and thankful—that my Genie IIIs, with its OMTI controller and hacked EPROM, found a new home about 15 years ago with Fritz Chwolka, a legend of the Z80 computing world.
 
 ## Forty years later
 
