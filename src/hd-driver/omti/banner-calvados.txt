@@ -1,0 +1,28 @@
+; CalvaDOS boot-logo artwork.
+;
+; Replaces GDOS's own "GENIE-DOS" block-graphics logo in SYS0/SYS. Nine
+; glyphs, 7 pixels wide with a 1-pixel gap, on a 9-pixel-tall field:
+; 71 pixels = 36 character cells. Capitals use all seven rows;
+; lowercase sits on the baseline with an x-height of five, and the l takes
+; the full height as an ascender.
+;
+; a simple python script turns this into the three runs of TRS-80 block-graphics
+; bytes that SYS0/SYS's banner string holds at 4FABh, 4FE1h and 5018h. Each
+; byte is one cell, 2 pixels wide by 3 tall, so lines 1-3 below become the
+; first run, 4-6 the second and 7-9 the third.
+;
+; '#' is ink and '.' is blank, which is why comments start with ';'.
+; Exactly 9 lines, and no wider than 72 pixels -- the narrowest of the three
+; runs is 37 bytes, one of which is that row's own final byte, leaving 36
+; cells.
+;
+;    C       a       l       v       a       -       D       O       S
+.#####...........###...........................######....#####...#####.
+##...##...........##............................##..##..##...##.##...##
+##.......#####....##....##...##..#####..........##...##.##...##.##.....
+##...........##...##....##...##......##.#######.##...##.##...##..#####.
+##.......######...##....##...##..######.........##...##.##...##......##
+##...##.##...##...##.....##.##..##...##.........##..##..##...##.##...##
+.#####...######..####.....###....######........######....#####...#####.
+.......................................................................
+.......................................................................
