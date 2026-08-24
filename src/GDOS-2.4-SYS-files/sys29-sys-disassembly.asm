@@ -20,19 +20,6 @@
 ;
 ;
 ;   z80dasm -g 0x4d00 -l -a -t sys29_flat.bin
-;
-; Rewritten from that z80dasm output into readable assembly: names in place
-; of z80dasm's lNNNNh/sub_NNNNh, and the module address of each line in the
-; right-hand column. Verified by assembling this file with pasmo and
-; comparing the result with the module byte for byte.
-;
-; Parts of every module are data -- message strings and tables -- that
-; z80dasm decodes as instructions, because it walks the bytes in order
-; rather than following where the code can go. Those stretches read as
-; nonsense (LD C,C / LD D,E is the letters I S), and any number in them
-; is a data byte, not an address. Only references that land in low RAM,
-; the DOS or this module get a symbol; anything else keeps its number,
-; which is the signal that it is not a reference at all.
 
 SCROFF  EQU     3641h		;offset of the visible from the physical screen
 SCRPUT  EQU     3649h		;put character A on the screen at (HL)

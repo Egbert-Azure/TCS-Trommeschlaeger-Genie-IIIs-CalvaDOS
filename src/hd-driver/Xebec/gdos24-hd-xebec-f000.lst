@@ -1,0 +1,540 @@
+F000                       DEFB	10h,11h,12h,13h,00h,40h,41h,00h,7fh,42h	;.....@A..B
+F00A  C3 F3 F3    Ef00a    JP	Ef3f3
+F00D  C3 4E F0    Ef00d    JP	Ef04e
+F010                       DEFB	9eh,0f0h,0aah,0f0h,9eh,0f0h,9eh,0f0h,0b8h,0f2h,9eh,0f0h,9eh,0f0h,9bh,0f0h	;................
+F020                       DEFB	58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h	;XXXXXXXXXXXXXXXX
+F030                       DEFB	58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h,58h	;XXXXXXXXXXXXXXXX
+F040                       DEFB	4fh,0f0h	;O.
+F042  ED 73 50 F0 Lf042    LD	(0f050h),SP
+F046  31 40 F0             LD	SP,0f040h
+F049  ED 53 5B F0          LD	(0f05bh),DE
+F04D  E9                   JP	(HL)
+F04E  37          Ef04e    SCF
+F04F  31 00 00             LD	SP,0000h
+F052  08                   EX	AF,AF'
+F053  DB F9                IN	A,(0f9h)
+F055  E6 3E                AND	3eh
+F057  F3                   DI
+F058  D3 F9                OUT	(0f9h),A
+F05A  C3 00 00             JP	0000h
+F05D  21 65 F0    Ef05d    LD	HL,0f065h
+F060  11 0C 37             LD	DE,370ch
+F063  18 DD                JR	Lf042
+F065  DB F9                IN	A,(0f9h)
+F067  E6 3E                AND	3eh
+F069  F6 41                OR	41h
+F06B  F3                   DI
+F06C  D3 F9                OUT	(0f9h),A
+F06E  3E 05                LD	A,5
+F070  32 88 4C             LD	(4c88h),A
+F073  32 B3 4C             LD	(4cb3h),A
+F076  3E C0                LD	A,0c0h
+F078  32 EF 47             LD	(47efh),A
+F07B  08                   EX	AF,AF'
+F07C  FE 0A                CP	0ah
+F07E  30 1B                JR	NC,Lf09b
+F080  32 08 43             LD	(4308h),A
+F083  26 F0                LD	H,0f0h
+F085  6F                   LD	L,A
+F086  7E                   LD	A,(HL)
+F087  F5                   PUSH	AF
+F088  E6 70                AND	70h
+F08A  0F                   RRCA
+F08B  0F                   RRCA
+F08C  0F                   RRCA
+F08D  5F                   LD	E,A
+F08E  16 00                LD	D,0
+F090  2E 10                LD	L,10h
+F092  19                   ADD	HL,DE
+F093  7E                   LD	A,(HL)
+F094  23                   INC	HL
+F095  66                   LD	H,(HL)
+F096  6F                   LD	L,A
+F097  F1                   POP	AF
+F098  E6 0F                AND	0fh
+F09A  E9                   JP	(HL)
+F09B  3E 20       Lf09b    LD	A,20h
+F09D  21 3E 08             LD	HL,083eh
+F0A0  E5                   PUSH	HL
+F0A1  21 9E F0             LD	HL,Lf09e
+F0A4  22 0E F0             LD	(0f00eh),HL
+F0A7  E1                   POP	HL
+F0A8  B7                   OR	A
+F0A9  C9                   RET
+F0AA  FE 02       Ef0aa    CP	2
+F0AC  30 F0                JR	NC,Lf09e
+F0AE  21 4E F0             LD	HL,Ef04e
+F0B1  22 0E F0             LD	(0f00eh),HL
+F0B4  4F                   LD	C,A
+F0B5  C9                   RET
+F0B6  22 D4 F0    Ef0b6    LD	(0f0d4h),HL
+F0B9  ED 53 D7 F0          LD	(0f0d7h),DE
+F0BD  21 C6 F0             LD	HL,Ef0c6
+F0C0  11 29 37             LD	DE,3729h
+F0C3  C3 42 F0             JP	Lf042
+F0C6  DB F9       Ef0c6    IN	A,(0f9h)
+F0C8  E6 3E                AND	3eh
+F0CA  F6 41                OR	41h
+F0CC  F3                   DI
+F0CD  D3 F9                OUT	(0f9h),A
+F0CF  08                   EX	AF,AF'
+F0D0  32 C4 46             LD	(46c4h),A
+F0D3  21 00 00             LD	HL,0000h
+F0D6  11 00 00             LD	DE,0000h
+F0D9  C3 0D F0             JP	Ef00d
+F0DC                       DEFB	0ch,00h,00h,00h,00h,00h,01h,32h,04h,01h,00h,00h,80h,0bh,00h,00h	;.......2........
+F0EC                       DEFB	00h,00h,01h,00h,00h,00h,00h,00h,00h,00h	;..........
+F0F6  AF          Lf0f6    XOR	A
+F0F7  D3 01                OUT	(1),A
+F0F9  C9                   RET
+F0FA  0E 00       Lf0fa    LD	C,0
+F0FC  18 36                JR	Lf134
+F0FE  0E 01                LD	C,1
+F100  18 32                JR	Lf134
+F102  06 0E       Lf102    LD	B,0eh
+F104  DD E5                PUSH	IX
+F106  DD 21 DC F0          LD	IX,0f0dch
+F10A  CD 17 F2             CALL	Lf217
+F10D  DD E1       Ef10d    POP	IX
+F10F  18 2A                JR	Lf13b
+F111  3A 88 F1    Lf111    LD	A,(0f188h)
+F114  32 23 F1             LD	(0f123h),A
+F117  32 30 F1             LD	(0f130h),A
+F11A  AF                   XOR	A
+F11B  C9                   RET
+F11C  3A 6C F1    Lf11c    LD	A,(0f16ch)
+F11F  2A 6E F1             LD	HL,(0f16eh)
+F122  11 11 31             LD	DE,3111h
+F125  0E 04                LD	C,4
+F127  18 0B                JR	Lf134
+F129  3A 6C F1    Lf129    LD	A,(0f16ch)
+F12C  2A 6E F1             LD	HL,(0f16eh)
+F12F  11 11 31             LD	DE,3111h
+F132  0E 06                LD	C,6
+F134  DD E5       Lf134    PUSH	IX
+F136  CD ED F1             CALL	Lf1ed
+F139  DD E1                POP	IX
+F13B  C0          Lf13b    RET	NZ
+F13C  CD 2F F2             CALL	Lf22f
+F13F  C9                   RET
+F140  CD 91 F1    Lf140    CALL	Lf191
+F143  0E 0F                LD	C,0fh
+F145  11 00 00             LD	DE,0000h
+F148  18 1B                JR	Lf165
+F14A  CD 91 F1    Lf14a    CALL	Lf191
+F14D  11 01 11             LD	DE,1101h
+F150  0E 08                LD	C,8
+F152  21 ED B2             LD	HL,0b2edh
+F155  CD 68 F1             CALL	Lf168
+F158  C0                   RET	NZ
+F159  3E 00                LD	A,0
+F15B  B7                   OR	A
+F15C  C9                   RET
+F15D  CD 91 F1    Ef15d    CALL	Lf191
+F160  11 01 11             LD	DE,1101h
+F163  0E 0A                LD	C,0ah
+F165  21 ED B3    Lf165    LD	HL,0b3edh
+F168  22 08 3A    Lf168    LD	(3a08h),HL
+F16B  3E 00                LD	A,0
+F16D  21 00 00             LD	HL,0000h
+F170  DD E5                PUSH	IX
+F172  CD ED F1             CALL	Lf1ed
+F175  DD E1                POP	IX
+F177  C0                   RET	NZ
+F178  CD 55 F2             CALL	Lf255
+F17B  C0                   RET	NZ
+F17C  DB 01                IN	A,(1)
+F17E  E6 19                AND	19h
+F180  CB 5F                BIT	3,A
+F182  20 09                JR	NZ,Lf18d
+F184  01 00 00             LD	BC,0000h
+F187  21 00 42             LD	HL,4200h
+F18A  CD 00 3A             CALL	3a00h
+F18D  CD 2F F2    Lf18d    CALL	Lf22f
+F190  C9                   RET
+F191  DB F9       Lf191    IN	A,(0f9h)
+F193  E6 3E                AND	3eh
+F195  F3                   DI
+F196  D3 F9                OUT	(0f9h),A
+F198  21 A4 F1             LD	HL,Ef1a4
+F19B  11 00 3A             LD	DE,3a00h
+F19E  01 12 00             LD	BC,0012h
+F1A1  ED B0                LDIR
+F1A3  C9                   RET
+F1A4  DB F9       Ef1a4    IN	A,(0f9h)
+F1A6  E6 3E                AND	3eh
+F1A8  F6 40                OR	40h
+F1AA  D3 F9                OUT	(0f9h),A
+F1AC  00                   NOP
+F1AD  00                   NOP
+F1AE  DB F9                IN	A,(0f9h)
+F1B0  E6 3E                AND	3eh
+F1B2  F3                   DI
+F1B3  D3 F9                OUT	(0f9h),A
+F1B5  C9                   RET
+F1B6  01 02 00    Lf1b6    LD	BC,0002h
+F1B9  DB 01       Lf1b9    IN	A,(1)
+F1BB  E6 02                AND	2
+F1BD  28 0A                JR	Z,Lf1c9
+F1BF  10 F8                DJNZ	Lf1b9
+F1C1  CD F6 F0             CALL	Lf0f6
+F1C4  0D                   DEC	C
+F1C5  20 F2                JR	NZ,Lf1b9
+F1C7  18 1B                JR	Lf1e4
+F1C9  0E 02       Lf1c9    LD	C,2
+F1CB  3E 01       Lf1cb    LD	A,1
+F1CD  D3 00                OUT	(0),A
+F1CF  DB 00                IN	A,(0)
+F1D1  FE 01                CP	1
+F1D3  20 0F                JR	NZ,Lf1e4
+F1D5  D3 02                OUT	(2),A
+F1D7  06 00                LD	B,0
+F1D9  DB 01       Lf1d9    IN	A,(1)
+F1DB  E6 02                AND	2
+F1DD  20 0C                JR	NZ,Lf1eb
+F1DF  10 F8                DJNZ	Lf1d9
+F1E1  0D                   DEC	C
+F1E2  20 E7                JR	NZ,Lf1cb
+F1E4  3E 0F       Lf1e4    LD	A,0fh
+F1E6  B7                   OR	A
+F1E7  32 F0 F0             LD	(0f0f0h),A
+F1EA  C9                   RET
+F1EB  AF          Lf1eb    XOR	A
+F1EC  C9                   RET
+F1ED  E6 1F       Lf1ed    AND	1fh
+F1EF  F6 00                OR	0
+F1F1  DD 21 EA F0          LD	IX,0f0eah
+F1F5  DD 71 00             LD	(IX+00h),C
+F1F8  DD 77 01             LD	(IX+01h),A
+F1FB  DD 74 02    Ef1fb    LD	(IX+02h),H
+F1FE  DD 75 03             LD	(IX+03h),L
+F201  DD 73 04             LD	(IX+04h),E
+F204  DD 72 05             LD	(IX+05h),D
+F207  DD 21 EA F0          LD	IX,0f0eah
+F20B  18 08                JR	Lf215
+F20D  DD 21 EA F0 Lf20d    LD	IX,0f0eah
+F211  DD 36 00 03          LD	(IX+00h),3
+F215  06 06       Lf215    LD	B,6
+F217  C5          Lf217    PUSH	BC
+F218  CD B6 F1             CALL	Lf1b6
+F21B  C1                   POP	BC
+F21C  20 0F                JR	NZ,Lf22d
+F21E  CD 55 F2    Lf21e    CALL	Lf255
+F221  20 0A                JR	NZ,Lf22d
+F223  DD 7E 00             LD	A,(IX+00h)
+F226  D3 00                OUT	(0),A
+F228  DD 23                INC	IX
+F22A  10 F2                DJNZ	Lf21e
+F22C  AF                   XOR	A
+F22D  B7          Lf22d    OR	A
+F22E  C9                   RET
+F22F  CD 55 F2    Lf22f    CALL	Lf255
+F232  C0                   RET	NZ
+F233  DB 00                IN	A,(0)
+F235  47                   LD	B,A
+F236  CD 55 F2             CALL	Lf255
+F239  DB 00                IN	A,(0)
+F23B  78                   LD	A,B
+F23C  E6 02                AND	2
+F23E  C8                   RET	Z
+F23F  CD 0D F2             CALL	Lf20d
+F242  06 06                LD	B,6
+F244  21 F0 F0             LD	HL,0f0f0h
+F247  CD 55 F2    Lf247    CALL	Lf255
+F24A  C0                   RET	NZ
+F24B  DB 00                IN	A,(0)
+F24D  77                   LD	(HL),A
+F24E  23                   INC	HL
+F24F  10 F6                DJNZ	Lf247
+F251  3A F0 F0             LD	A,(0f0f0h)
+F254  C9                   RET
+F255  C5          Lf255    PUSH	BC
+F256  D5                   PUSH	DE
+F257  11 00 02             LD	DE,0200h
+F25A  01 00 00             LD	BC,0000h
+F25D  0B          Lf25d    DEC	BC
+F25E  78                   LD	A,B
+F25F  B1                   OR	C
+F260  28 0A                JR	Z,Lf26c
+F262  DB 01                IN	A,(1)
+F264  E6 01                AND	1
+F266  28 F5                JR	Z,Lf25d
+F268  BF                   CP	A
+F269  D1          Lf269    POP	DE
+F26A  C1                   POP	BC
+F26B  C9                   RET
+F26C  1D          Lf26c    DEC	E
+F26D  20 EE                JR	NZ,Lf25d
+F26F  15                   DEC	D
+F270  20 EB                JR	NZ,Lf25d
+F272  CD F6 F0             CALL	Lf0f6
+F275  3E 0F                LD	A,0fh
+F277  B7                   OR	A
+F278  18 EF                JR	Lf269
+F27A  E6 3F       Lf27a    AND	3fh
+F27C  32 8C F2             LD	(0f28ch),A
+F27F  FE 24                CP	24h
+F281  3E 09                LD	A,9
+F283  D0                   RET	NC
+F284  DD E5                PUSH	IX
+F286  DD 21 94 F2          LD	IX,0f294h
+F28A  DD 7E 00             LD	A,(IX+00h)
+F28D  DD E1                POP	IX
+F28F  B7                   OR	A
+F290  32 4A F3             LD	(0f34ah),A
+F293  C9                   RET
+F294                       DEFB	00h,08h,02h,0eh,08h,09h,02h,09h,02h,09h,09h,09h,09h,09h,06h,08h	;................
+F2A4                       DEFB	01h,04h,05h,09h,05h,02h,09h,09h,04h,07h,27h,09h,07h,28h,28h,28h	;..........'..(((
+F2B4                       DEFB	34h,14h,2fh,09h	;4./.
+F2B8  21 60 F3    Ef2b8    LD	HL,Ef360
+F2BB  22 0E F0             LD	(0f00eh),HL
+F2BE  87                   ADD	A,A
+F2BF  87                   ADD	A,A
+F2C0  87                   ADD	A,A
+F2C1  87                   ADD	A,A
+F2C2  5F                   LD	E,A
+F2C3  16 00                LD	D,0
+F2C5  21 C3 F3             LD	HL,0f3c3h
+F2C8  19                   ADD	HL,DE
+F2C9  DD E5                PUSH	IX
+F2CB  E5                   PUSH	HL
+F2CC  DD E1                POP	IX
+F2CE  E5                   PUSH	HL
+F2CF  11 0A 43             LD	DE,430ah
+F2D2  01 08 00             LD	BC,0008h
+F2D5  ED B0                LDIR
+F2D7  E1                   POP	HL
+F2D8  11 CC 37             LD	DE,37cch
+F2DB  ED 53 99 43          LD	(4399h),DE
+F2DF  01 0A 00             LD	BC,000ah
+F2E2  DB F9                IN	A,(0f9h)
+F2E4  E6 3E                AND	3eh
+F2E6  F3                   DI
+F2E7  D3 F9                OUT	(0f9h),A
+F2E9  ED B0                LDIR
+F2EB  DB F9                IN	A,(0f9h)
+F2ED  E6 3E                AND	3eh
+F2EF  F6 41                OR	41h
+F2F1  F3                   DI
+F2F2  D3 F9                OUT	(0f9h),A
+F2F4  DD 4E 0D             LD	C,(IX+0dh)
+F2F7  79                   LD	A,C
+F2F8  32 88 4C             LD	(4c88h),A
+F2FB  32 B3 4C             LD	(4cb3h),A
+F2FE  DD 7E 0C             LD	A,(IX+0ch)
+F301  32 79 F3             LD	(0f379h),A
+F304  DD 6E 0A             LD	L,(IX+0ah)
+F307  DD 66 0B             LD	H,(IX+0bh)
+F30A  22 74 F3             LD	(0f374h),HL
+F30D  DD 6E 04             LD	L,(IX+04h)
+F310  DD 7E 03             LD	A,(IX+03h)
+F313  CD 92 4C             CALL	4c92h
+F316  2B                   DEC	HL
+F317  22 67 F3             LD	(0f367h),HL
+F31A  DD 6E 08             LD	L,(IX+08h)
+F31D  DD 7E 05             LD	A,(IX+05h)
+F320  CD 92 4C             CALL	4c92h
+F323  79                   LD	A,C
+F324  CD 94 4C             CALL	4c94h
+F327  22 89 F3             LD	(0f389h),HL
+F32A  EB                   EX	DE,HL
+F32B  DD 6E 09             LD	L,(IX+09h)
+F32E  79                   LD	A,C
+F32F  CD 92 4C             CALL	4c92h
+F332  7D                   LD	A,L
+F333  FE 1F                CP	1fh
+F335  38 02                JR	C,Lf339
+F337  2E 1E                LD	L,1eh
+F339  19          Lf339    ADD	HL,DE
+F33A  2B                   DEC	HL
+F33B  22 81 F3             LD	(0f381h),HL
+F33E  3E C9                LD	A,0c9h
+F340  32 EF 47             LD	(47efh),A
+F343  AF                   XOR	A
+F344  32 09 43             LD	(4309h),A
+F347  DD E1                POP	IX
+F349  3E 00                LD	A,0
+F34B  B7                   OR	A
+F34C  3E 00                LD	A,0
+F34E  32 4A F3             LD	(0f34ah),A
+F351  C8                   RET	Z
+F352  CD FA F0             CALL	Lf0fa
+F355  C4 7A F2             CALL	NZ,Lf27a
+F358  C0                   RET	NZ
+F359  CD 02 F1             CALL	Lf102
+F35C  C4 7A F2             CALL	NZ,Lf27a
+F35F  C9                   RET
+F360  E5          Ef360    PUSH	HL
+F361  D5                   PUSH	DE
+F362  C5                   PUSH	BC
+F363  22 88 F1             LD	(0f188h),HL
+F366  21 00 00             LD	HL,0000h
+F369  B7                   OR	A
+F36A  ED 52                SBC	HL,DE
+F36C  30 04                JR	NC,Lf372
+F36E  3E 21                LD	A,21h
+F370  18 49                JR	Lf3bb
+F372  F5          Lf372    PUSH	AF
+F373  21 00 00             LD	HL,0000h
+F376  AF                   XOR	A
+F377  19                   ADD	HL,DE
+F378  CE 00                ADC	A,0
+F37A  22 6E F1             LD	(0f16eh),HL
+F37D  32 6C F1             LD	(0f16ch),A
+F380  21 00 00             LD	HL,0000h
+F383  AF                   XOR	A
+F384  ED 52                SBC	HL,DE
+F386  38 0A                JR	C,Lf392
+F388  21 00 00             LD	HL,0000h
+F38B  EB                   EX	DE,HL
+F38C  ED 52                SBC	HL,DE
+F38E  38 02                JR	C,Lf392
+F390  3E 0E                LD	A,0eh
+F392  32 5A F1    Lf392    LD	(0f15ah),A
+F395  F1                   POP	AF
+F396  21 BB F3             LD	HL,Lf3bb
+F399  E5                   PUSH	HL
+F39A  FE F4                CP	0f4h
+F39C  CA 40 F1             JP	Z,Lf140
+F39F  FE F5                CP	0f5h
+F3A1  CA 29 F1             JP	Z,Lf129
+F3A4  FE F6                CP	0f6h
+F3A6  CA 1C F1             JP	Z,Lf11c
+F3A9  FE F7                CP	0f7h
+F3AB  CA 11 F1             JP	Z,Lf111
+F3AE  FE D0                CP	0d0h
+F3B0  CA F6 F0             JP	Z,Lf0f6
+F3B3  CB 6F                BIT	5,A
+F3B5  CA 4A F1             JP	Z,Lf14a
+F3B8  C3 5D F1             JP	Ef15d
+F3BB  C1          Lf3bb    POP	BC
+F3BC  D1                   POP	DE
+F3BD  E1                   POP	HL
+F3BE  B7                   OR	A
+F3BF  C4 7A F2             CALL	NZ,Lf27a
+F3C2  C9                   RET
+F3C3                       DEFB	60h,0c0h,04h,28h,0c0h,08h,00h,00h,60h,06h,20h,00h,00h,05h,00h,00h	;`..(....`. .....
+F3D3                       DEFB	01h,7bh,04h,0a3h,0c0h,08h,00h,00h,01h,01h,20h,1eh,00h,20h,00h,00h	;.{........ .. ..
+F3E3                       DEFB	0cdh,9ah,04h,77h,0c0h,08h,00h,00h,0cdh,00h,00h,00h,00h,20h,00h,00h	;...w......... ..
+F3F3  21 B4 F4    Ef3f3    LD	HL,Ef4b4
+F3F6  11 00 37             LD	DE,3700h
+F3F9  01 38 00             LD	BC,0038h
+F3FC  ED B0                LDIR
+F3FE  DB F9                IN	A,(0f9h)
+F400  E6 3E                AND	3eh
+F402  F6 41                OR	41h
+F404  F3                   DI
+F405  D3 F9                OUT	(0f9h),A
+F407  3E C3                LD	A,0c3h
+F409  32 7C 47             LD	(477ch),A
+F40C  32 42 46             LD	(4642h),A
+F40F  21 00 37             LD	HL,3700h
+F412  22 7D 47             LD	(477dh),HL
+F415  21 1D 37             LD	HL,371dh
+F418  22 43 46             LD	(4643h),HL
+F41B  3A 08 43             LD	A,(4308h)
+F41E  32 06 43             LD	(4306h),A
+F421  3E 06                LD	A,6
+F423  32 84 47             LD	(4784h),A
+F426  3A A0 42             LD	A,(42a0h)
+F429  32 AB F0             LD	(0f0abh),A
+F42C  21 00 40             LD	HL,4000h
+F42F  01 00 02             LD	BC,0200h
+F432  DB F9                IN	A,(0f9h)
+F434  E6 3E                AND	3eh
+F436  F6 C1                OR	0c1h
+F438  F3                   DI
+F439  D3 F9                OUT	(0f9h),A
+F43B  7E          Lf43b    LD	A,(HL)
+F43C  5F                   LD	E,A
+F43D  2F                   CPL
+F43E  77                   LD	(HL),A
+F43F  BE                   CP	(HL)
+F440  73                   LD	(HL),E
+F441  28 01                JR	Z,Lf444
+F443  37                   SCF
+F444  CB 11       Lf444    RL	C
+F446  DB F9                IN	A,(0f9h)
+F448  E6 3E                AND	3eh
+F44A  F6 81                OR	81h
+F44C  F3                   DI
+F44D  D3 F9                OUT	(0f9h),A
+F44F  10 EA                DJNZ	Lf43b
+F451  79                   LD	A,C
+F452  07                   RLCA
+F453  07                   RLCA
+F454  F6 03                OR	3
+F456  4F                   LD	C,A
+F457  DB F9                IN	A,(0f9h)
+F459  E6 3E                AND	3eh
+F45B  F3                   DI
+F45C  D3 F9                OUT	(0f9h),A
+F45E  79                   LD	A,C
+F45F  32 FF 36             LD	(36ffh),A
+F462  21 00 F7             LD	HL,0f700h
+F465  22 FD 36             LD	(36fdh),HL
+F468  21 DF 37             LD	HL,37dfh
+F46B  3E 0A                LD	A,0ah
+F46D  3D          Lf46d    DEC	A
+F46E  77                   LD	(HL),A
+F46F  2B                   DEC	HL
+F470  20 FB                JR	NZ,Lf46d
+F472  CD B6 F1             CALL	Lf1b6
+F475  28 08                JR	Z,Lf47f
+F477  21 9E F0             LD	HL,Lf09e
+F47A  22 18 F0             LD	(0f018h),HL
+F47D  18 32                JR	Lf4b1
+F47F  21 DD 37    Lf47f    LD	HL,37ddh
+F482  11 DF 37             LD	DE,37dfh
+F485  01 08 00             LD	BC,0008h
+F488  ED B8                LDDR
+F48A  21 05 06             LD	HL,0605h
+F48D  22 D6 37             LD	(37d6h),HL
+F490  DB F9                IN	A,(0f9h)
+F492  E6 3E                AND	3eh
+F494  F6 41                OR	41h
+F496  F3                   DI
+F497  D3 F9                OUT	(0f9h),A
+F499  3A A0 42             LD	A,(42a0h)
+F49C  C6 02                ADD	A,2
+F49E  32 9F 43             LD	(439fh),A
+F4A1  21 00 00             LD	HL,0000h
+F4A4  22 66 4D             LD	(4d66h),HL
+F4A7  22 67 4D             LD	(4d67h),HL
+F4AA  DB F9                IN	A,(0f9h)
+F4AC  E6 3E                AND	3eh
+F4AE  F3                   DI
+F4AF  D3 F9                OUT	(0f9h),A
+F4B1  C3 00 32    Lf4b1    JP	3200h
+F4B4  08          Ef4b4    EX	AF,AF'
+F4B5  F5                   PUSH	AF
+F4B6  DB F9                IN	A,(0f9h)
+F4B8  E6 3E                AND	3eh
+F4BA  F3                   DI
+F4BB  D3 F9                OUT	(0f9h),A
+F4BD  C3 5D F0             JP	Ef05d
+F4C0  DB F9       Ef4c0    IN	A,(0f9h)
+F4C2  E6 3E                AND	3eh
+F4C4  F6 40                OR	40h
+F4C6  D3 F9                OUT	(0f9h),A
+F4C8  FB                   EI
+F4C9  F1                   POP	AF
+F4CA  08                   EX	AF,AF'
+F4CB  DA 80 47             JP	C,4780h
+F4CE  C3 DE 47             JP	47deh
+F4D1  08          Ef4d1    EX	AF,AF'
+F4D2  F5                   PUSH	AF
+F4D3  DB F9                IN	A,(0f9h)
+F4D5  E6 3E                AND	3eh
+F4D7  F3                   DI
+F4D8  D3 F9                OUT	(0f9h),A
+F4DA  C3 B6 F0             JP	Ef0b6
+F4DD  DB F9       Ef4dd    IN	A,(0f9h)
+F4DF  E6 3E                AND	3eh
+F4E1  F6 40                OR	40h
+F4E3  D3 F9                OUT	(0f9h),A
+F4E5  FB                   EI
+F4E6  F1                   POP	AF
+F4E7  08                   EX	AF,AF'
+F4E8  DA 45 46             JP	C,4645h
+F4EB  C9                   RET

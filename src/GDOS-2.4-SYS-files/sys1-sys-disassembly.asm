@@ -17,18 +17,13 @@
 ;
 ;   z80dasm -g 0x4d00 -l -a -t sys1_flat.bin
 ;
-; Rewritten from that z80dasm output into readable assembly: names in place
-; of z80dasm's lNNNNh/sub_NNNNh, and the module address of each line in the
-; right-hand column. Verified by assembling this file with pasmo and
-; comparing the result with the module byte for byte.
+; Boxed annotations sit above the line they describe:
 ;
-; Parts of every module are data -- message strings and tables -- that
-; z80dasm decodes as instructions, because it walks the bytes in order
-; rather than following where the code can go. Those stretches read as
-; nonsense (LD C,C / LD D,E is the letters I S), and any number in them
-; is a data byte, not an address. Only references that land in low RAM,
-; the DOS or this module get a symbol; anything else keeps its number,
-; which is the signal that it is not a reference at all.
+;   [PATCH]  a departure from stock GDOS 2.4, with the stock bytes,
+;            this build's bytes and the reason for the change.
+;   [note]   not from Grosser -- either a finding here, or a place
+;            GDOS 2.4 diverges from his 2.1c (his ch.9.4.2).
+;   Name:    a routine, as Grosser documents it in ch.3.
 
 CURFLG  EQU     4022h		;video DCB: cursor on/off
 DOSRDY  EQU     402dh		;return to the DOS prompt
@@ -904,20 +899,26 @@ m51c8   LD      C,L                     ;51c8
         LD      L,(HL)                  ;51ca
         LD      L,C                     ;51cb
         DEC     L                       ;51cc
-m51cd   LD      B,D                     ;51cd
-        LD      H,L                     ;51ce
-        LD      H,(HL)                  ;51cf
-        LD      H,L                     ;51d0
-        LD      L,B                     ;51d1
-        LD      L,H                     ;51d2
-        LD      (HL),E                  ;51d3
-        LD      H,L                     ;51d4
-        LD      L,C                     ;51d5
-        LD      L,(HL)                  ;51d6
-        LD      H,A                     ;51d7
-        LD      H,C                     ;51d8
-        LD      H,D                     ;51d9
-        LD      H,L                     ;51da
+; ------------------------------------------------------------
+; [PATCH]     51CDh-51DAh
+; Stock:      "Befehlseingabe"   14 bytes; 1Eh/0Dh follow, unchanged
+; This build: "CalvaDOS      "   same 14 bytes, padded
+; Reason:     Cosmetic. "Mini-" prefix at 51C8h unchanged ->
+;             "Mini-CalvaDOS". Same footprint kept: position
+;             matters to the CD command (src/volker/SYS1.asm), and
+;             the string's own EOF marker follows immediately.
+; ------------------------------------------------------------
+m51cd   LD      B,E                     ;51cd
+        LD      H,C                     ;51ce
+        LD      L,H                     ;51cf
+        HALT                            ;51d0
+        LD      H,C                     ;51d1
+        LD      B,H                     ;51d2
+        LD      C,A                     ;51d3
+        LD      D,E                     ;51d4
+        JR      NZ,$+34                 ;51d5
+        JR      NZ,$+34                 ;51d7
+        JR      NZ,$+34                 ;51d9
         LD      E,0DH                   ;51db
 m51dd   INC     E                       ;51dd
         RRA                             ;51de

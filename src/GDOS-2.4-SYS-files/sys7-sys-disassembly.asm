@@ -14,8 +14,9 @@
 ;
 ; Format follows SYS8-sys-disassembly.asm: an EQU table for every address
 ; referenced outside this file's own image, ORG/END, uppercase mnemonics,
-; inline "mXXXX  OP  operands" labels, and [note] comments for anything read
-; off the disassembly rather than taken from Grosser.
+; inline "mXXXX  OP  operands" labels, and boxed [note] annotations, sitting
+; above the line they describe, for anything read off the disassembly
+; rather than taken from Grosser.
 ;
 ;   z80dasm -g 0x4d00 -l -a -t sys7_flat.bin
 ;
@@ -33,8 +34,6 @@
 ;   C=08 -> m5142  ? (Grosser: "?", unnamed)
 ;   C=09 -> m4d69  DB PURGE
 ;   C=0A / C=0B     DB TIME / DB DATE (not individually traced)
-;
-; [note]   read off the disassembly, not from any prior reference.
 
 m001b	EQU	001bh
 m0050	EQU	0050h
@@ -124,17 +123,34 @@ m4d58	LD	A,(HL)
 	RET	Z
 m4d5c	LD	A,34H
 m4d5e	JP	DOSERR
-m4d61	LD	B,33H		;[note] C=1: "Anfang von DB SYSTEM" (Grosser). B=33h = SYS17's GETSYS module code.
+; ------------------------------------------------------------
+; [note]      4D61h: C=1, "Anfang von DB SYSTEM" (Grosser). B=33h
+;             is SYS17's GETSYS module code.
+; ------------------------------------------------------------
+m4d61	LD	B,33H
 	JR	m4d6c
-m4d65	LD	B,32H		;[note] C=3: "Anfang von DB PDRIVE" (Grosser). B=32h = SYS16's GETSYS module code.
+; ------------------------------------------------------------
+; [note]      4D65h: C=3, "Anfang von DB PDRIVE" (Grosser). B=32h
+;             is SYS16's GETSYS module code.
+; ------------------------------------------------------------
+m4d65	LD	B,32H
 	JR	m4d6c
 m4d69	LD	BC,0E506H
-m4d6c	PUSH	BC		;[note] shared SYSTEM/PDRIVE tail -- ends in RST 28h below.
+; ------------------------------------------------------------
+; [note]      4D6Ch: shared SYSTEM/PDRIVE tail -- ends in RST 28h
+;             below.
+; ------------------------------------------------------------
+m4d6c	PUSH	BC
 	CALL	m4e89
 	POP	BC
 	LD	A,B
 	LD	B,(IY-78H)
-	RST	28H		;[note] RST 28h = GETSYS (Grosser, documented at sys0-sys-disassembly.asm ~1678: entered via RST 28H, A=xxxbbsss module code -- here A=33h -> SYS17).
+; ------------------------------------------------------------
+; [note]      4D75h: RST 28h = GETSYS (Grosser, documented at
+;             sys0-sys-disassembly.asm ~1678: entered via RST 28H,
+;             A=xxxbbsss module code -- here A=33h -> SYS17).
+; ------------------------------------------------------------
+	RST	28H
 m4d76	LD	A,(HL)
 	CP	0DH
 	JR	NZ,m4d8c
@@ -305,7 +321,13 @@ m4e77	PUSH	AF
 	LD	H,B
 	LD	L,C
 	JR	m4e5b
-m4e89	CALL	m4ffe		;[note] parses the trailing command-line parameter; called BEFORE B is loaded from (4308h) at 4d75h above. Not yet confirmed as the drive-digit-to-DRVSEL path.
+; ------------------------------------------------------------
+; [note]      4E89h: parses the trailing command-line parameter;
+;             called before B is loaded from (4308h) at 4D72h
+;             above. Not yet confirmed as the drive-digit-to-DRVSEL
+;             path.
+; ------------------------------------------------------------
+m4e89	CALL	m4ffe
 	LD	A,(HL)
 	CP	3AH
 	INC	HL

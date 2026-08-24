@@ -29,10 +29,11 @@
 ;************************************************************************
 ;
 ; SYS0/SYS module 0, from DMK/G3S-GDOS24.DMK, carrying this port's own
-; patches. Not every one of them: the byte column does not reflect the
-; AUTO-command patches at 4EF9h/4F0Dh or the drive-0 read at 50C4h, and
-; the boot-banner block at 4FABh-504Dh is string data that this listing
-; disassembles as though it were code.
+; patches -- boxed at 4BE4h, 4BF0h, 327Eh, 4C13h, 4D63h-4D6Eh, 4EF9h-4EFAh,
+; 4F0Dh-4F14h and 50C4h. Not the boot-banner block at 4FABh-504Dh, though:
+; that one is string data that this listing disassembles as though it
+; were code, so its patch (labels left-aligned to column 39) isn't
+; byte-boxed here.
 ;
 ; Boxed annotations sit above the line they describe:
 ;
@@ -561,7 +562,16 @@
 441C  3e 83     ld a,083h
 441E  ef        rst 28h
 441F  00        nop
-4420  3e 44     ld a,044h
+; ------------------------------------------------------------
+; Name: INIT 
+; Funktion: File offen, ggf. neue File anlegen 
+; ft Input: DE: zeigt auf FCB, der Filespec enthält 
+; HL: zeigt auf zu benutzenden Buffer 
+; ft B: gibt Logische Recordlänge an ft
+; ft Verändert: — ft
+; ft Output: AF: A=Fehlercode, wenn Z=0 
+; ------------------------------------------------------------
+420  3e 44     ld a,044h
 4422  ef        rst 28h
 4423  00        nop
 4424  3e 24     ld a,024h
@@ -2162,6 +2172,18 @@
 4BE0  77        ld (hl),a
 4BE1  e6 07     and 007h
 4BE3  4f        ld c,a
+; ------------------------------------------------------------
+; [PATCH]     4BE4h
+; Stock:      AF 32 D8 43 CD 76 47   XOR A / LD (43D8h),A / CALL 4776h
+;             (DRVSEL, drive 0 hardcoded)
+; This build: CD 8C 44 00 00 00 00   CALL 448Ch (rsysfcb) / NOP x4
+; Reason:     GETSYS's own drive-0 site: rsysfcb (gdos-omti.asm)
+;             loads the shared FCB's NEXT field (43D8h) with
+;             sysvol instead of resetting it to 0, then falls
+;             through to DRVSEL with sysvol in A. Same stock
+;             idiom as SYS26/SYS's 4EFEh/4F3Bh and this file's
+;             own 50C4h fix.
+; ------------------------------------------------------------
 4BE4  cd 8c 44  call 0448ch
 4BE7  00        nop
 4BE8  00        nop
@@ -2172,6 +2194,17 @@
 4BED  07        rlca
 4BEE  07        rlca
 4BEF  81        add a,c
+; ------------------------------------------------------------
+; [PATCH]     4BF0h
+; Stock:      CD 36 49   CALL 4936h (GETFDE)
+; This build: CD 95 44   CALL 4495h (rdecfix)
+; Reason:     Stock never writes the just-computed module DEC
+;             back into the shared FCB's dfcbdec field (43D5h),
+;             so 4959h's later verification re-derives its own
+;             candidate and checks it against a stale value.
+;             rdecfix (gdos-omti.asm) persists A into dfcbdec
+;             before making the same GETFDE call.
+; ------------------------------------------------------------
 4BF0  cd 95 44  call 04495h
 4BF3  20 19     jr nz,l4c0eh
 4BF5  cb 76     bit 6,(hl)
@@ -2682,7 +2715,25 @@
 4EF2  cd 67 44  call sub_4467h  ; Datum und Uhrzeit auf Bildschirm ausgeben
 4EF5  af        xor a  ; GAT-Sector von Drive 0 lesen wegen evtl. AUTO-Befehl; Nummer der DIR-Sectors (GAT=0)
 4EF6  32 30 49  ld (sub_492fh+1),a
-4EF9  21 05 4f  ld hl,l4f05h
+; ------------------------------------------------------------
+; [PATCH]     4EF9h-4EFAh
+; Stock:      21 05   LD HL,4F05h (first 2 bytes of a 3-byte load)
+; This build: 18 0D   JR 4F08h
+; Reason:     SYS0's cold start re-reads the GAT sector a second
+;             time to pick up a possible AUTO command. It reads
+;             whatever drive is current, which at cold start on
+;             this port is sysvol -- but this call path goes out
+;             through 4642h to this driver's own hook, not a
+;             floppy read, and the driver has already placed
+;             that same sector at 4200h during ginit. The 3rd
+;             byte of the old LD HL (4Fh, now at 4EFBh) is
+;             orphaned, not overwritten -- nothing branches into
+;             4EFBh-4F07h any more, so it and the
+;             PUSH/PUSH/PUSH/LD HL/JP/JP NZ that follow it are
+;             dead.
+; ------------------------------------------------------------
+4EF9  18 0d     jr l4f08h
+4EFB  4f        ld c,a
 4EFC  e5        push hl
 4EFD  d5        push de
 4EFE  c5        push bc
@@ -2692,9 +2743,29 @@
 4F08  11 18 43  ld de,04318h  ; Zeiger auf Input-Buffer des DOS
 4F0B  d5        push de
 4F0C  c5        push bc
-4F0D  21 e0 42  ld hl,042e0h  ; Zeiger auf AUTO-Befehl im GAT-Sector
-4F10  01 20 00  ld bc,00020h  ; max. Laenge des AUTO-Befehls
-4F13  ed b0     ldir  ; AUTO-Befehl in Input-Buffer uebertragen
+; ------------------------------------------------------------
+; [PATCH]     4F0Dh-4F14h
+; Stock:      21 E0 42 01 20 00 ED B0   LD HL,42E0h / LD BC,0020h / LDIR --
+;             copy 32 bytes out of the GAT sector
+;             into the DOS input buffer
+; This build: 3E 0D 12 00 00 00 00 00   LD A,0Dh / LD (DE),A / NOP x5 -- DE
+;             is already 4318h from 4F08h
+; Reason:     4200h is the DOS's shared sector buffer, reused by
+;             every disk read between boot and here -- skipping
+;             only the GAT re-read (see 4EF9h above) would copy
+;             whatever sector was read last into the command
+;             buffer and run it as an AUTO command. This port
+;             has no AUTO command by design, so it says so
+;             directly: a bare CR. Same 8-byte footprint as the
+;             LDIR it replaces.
+; ------------------------------------------------------------
+4F0D  3e 0d     ld a,00dh
+4F0F  12        ld (de),a
+4F10  00        nop
+4F11  00        nop
+4F12  00        nop
+4F13  00        nop
+4F14  00        nop
 4F15  21 ab 43  ld hl,043abh  ; vermerken, dass NEWDOS/80 bzw. GDOS initialisiert ist
 4F18  36 a5     ld (hl),0a5h
 4F1A  c1        pop bc

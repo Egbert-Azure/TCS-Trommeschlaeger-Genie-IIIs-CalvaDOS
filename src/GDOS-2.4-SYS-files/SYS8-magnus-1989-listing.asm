@@ -10,21 +10,10 @@
 ; Datum:08.09.89
 ;
 ;************************************************************************
-; A. Magnus's own 1989 listing, not a disassembly made here -- the z80dasm
-; provenance line that used to sit at this spot was pasted on and was never
-; true of this file.
-;
-; It documents a different build of SYS8/SYS from the one on
-; DMK/G3S-GDOS24.DMK. Measured: this disk's module opens
-; "LD IY,4380h / CP 2Ah" where the listing has eight instructions in
-; between, and none of the listing's strings ('Datum:', 'EOF: log
-; Records:', 'DISK in') appear anywhere in the disk's SYS8/SYS, nor in the
-; SYS8 of either other disk in DMK/. Read it as period reference material
-; for the module, not as a description of the shipped file.
-;
-; tools/verify-disasm.py skips it for that reason. It does assemble, so the
-; round-trip check can be turned on the day a matching disk turns up.
-;
+; A. Magnus's own 1989 listing - 
+; different from the SYS8-sys-disassembly.asm file
+; probably stage c
+
 m1916	EQU	1916h
 m0033	EQU	0033h		;ROM: Zeichen ausgeben
 m0049	EQU	0049h		;ROM: auf Tastendruck warten

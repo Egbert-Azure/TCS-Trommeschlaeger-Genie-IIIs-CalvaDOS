@@ -31,8 +31,6 @@
 ;
 ; Not annotated beyond the dispatch table above -- this module's actual
 ; function (which DOS command(s) it implements) has not been identified.
-;
-; [note]   read off the disassembly, not from any prior reference.
 
 ROMCHR  EQU	0033h		;ROM: put character A on the screen
 m00f5	EQU	00f5h
@@ -44,7 +42,6 @@ m37f9	EQU	37f9h
 m3c00	EQU	3c00h
 VIDTOP  EQU	4023h		;video DCB: number of header lines
 VIDBOT  EQU	4024h		;video DCB: number of footer lines
-DOSRDY  EQU	402dh		;return to the DOS prompt
 m4080	EQU	4080h
 m4100	EQU	4100h
 m4121	EQU	4121h

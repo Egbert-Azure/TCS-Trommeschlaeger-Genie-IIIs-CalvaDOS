@@ -22,8 +22,6 @@
 ; COPY 5, documented as living at 501Ch -- not yet located in this
 ; disassembly). Module code 33h & 1Fh = 13h -> SYS-number 19-2 = 17,
 ; confirming this file.
-;
-; [note]   read off the disassembly, not from any prior reference.
 
 ROMCHR  EQU	0033h		;ROM: put character A on the screen
 HEXDE   EQU	4063h		;write DE as hex ASCII to (HL)
