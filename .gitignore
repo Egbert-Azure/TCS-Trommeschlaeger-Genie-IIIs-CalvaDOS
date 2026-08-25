@@ -1,0 +1,9 @@
+# Ignore the symlink to the external tool
+tools/trsextract
+
+# Ignore build output
+build/
+
+# Ignore temporary files
+*.tmp
+*.bak
