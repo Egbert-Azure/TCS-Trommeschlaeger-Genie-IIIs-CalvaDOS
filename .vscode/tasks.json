@@ -2,6 +2,24 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "Z80: Disassemble current file",
+            "type": "shell",
+            "command": "z80dasm",
+            "args": [
+                "-g", "0x4d00",
+                "-l",
+                "-a",
+                "-t",
+                "${file}"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "problemMatcher": []
+        },
+
+        {
             "label": "GDOS: Boot stock GDOS",
             "type": "shell",
             "command": "./run-stock-session.sh",
@@ -11,12 +29,13 @@
             },
             "problemMatcher": []
         },
+
         {
             "label": "GDOS: Boot CalvaDOS OMTI HD",
             "type": "shell",
             "command": "/bin/bash",
             "args": [
-                "${workspaceFolder}/run-5-calvados-omti-hd.command"
+                "${workspaceFolder}/run-5-calvaDOS-omti-hd.command"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
