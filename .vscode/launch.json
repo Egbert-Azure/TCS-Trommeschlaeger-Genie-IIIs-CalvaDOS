@@ -1,0 +1,20 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "dezog",
+            "request": "launch",
+            "name": "Debug Z80 Program",
+            "program": "${fileDirname}/${fileBasenameNoExtension}.bin",
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": true,
+            "z80asm": {
+                "useZ80Asm": true
+            },
+            "rootFolder": "${workspaceFolder}",
+            "history": {
+                "reverseDebugInstructionCount": 50000
+            }
+        }
+    ]
+}

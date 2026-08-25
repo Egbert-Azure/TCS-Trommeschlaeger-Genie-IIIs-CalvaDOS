@@ -10,7 +10,9 @@
                 "-l",
                 "-a",
                 "-t",
-                "${file}"
+                "${file}",
+                "-o",
+                "${fileDirname}/${fileBasenameNoExtension}.asm"
             ],
             "presentation": {
                 "reveal": "always",
