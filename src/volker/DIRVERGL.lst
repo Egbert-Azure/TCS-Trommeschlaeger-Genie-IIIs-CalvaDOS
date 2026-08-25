@@ -1,0 +1,299 @@
+            	LIST	ON
+            ;************************************************************************
+            ;
+            ; Dieses Programm vergleicht zwei Direktorys auf gleichheit oder
+            ; ungleichheit.
+            ; Aufruf: DIRVERGL,Q,Z,(U),(P)
+            ; wobei Q das erste Laufwerk und Z das zweite sind.
+            ; Ohne weitere Angaben werden die Programme (außer SYS-Files) die in
+            ; beiden Directorys enthalten sind ausgegeben oder gedruckt (,P)
+            ; wird 'U' angegeben, werden nur die Files angezeigt (oder gedruckt)
+            ; die auf Drive Q, nicht aber auf Z vorhanden sind.
+            ;
+            ; Name: DIRVERGL/SRC
+            ;
+            ; Datum:22.09.89	letzte Änderung: 10.03.1990
+            ;
+            ; Diese Programm ist von A.Magnus geschrieben
+            ;
+            ; (c) Sept. 1989 by A. Magnus   HACKNUS - SOFTWARE
+            ;
+            ; Unentgeltliche Weitergabe und Veränderung sind ausdrücklich erwünscht.
+            ;
+            ;************************************************************************
+            
+            
+            ;Labels zur Anpassung des Programms an den eigenen Computer:
+            m1	EQU	0	;Model 1, Genie 1/2/2s: 1       anderer Rechner: 0
+            m3	EQU	0	;Model 3/4/4p:		1     	andere Rechner: 0
+            g3	EQU	1	;Genie 3/3s/3ß:		1	andere Rechner: 0
+            
+            ;Sicherung gegen falsche Label-Zuteilung (mehrfach 1 oder dreimal 0)
+            model	EQU	m1+m3+g3-1	;das Resultat muß 0 ergeben
+            
+            	IF 	NOT,m3
+            testpar	EQU	4cd5h		;Testet Parameter in (HL)
+            getfde	EQU	4936h		;liest nächsten FDE aus DIR-Sektor
+            cpbchl	EQU	4cc5h		;vergleicht (BC) mit (HL)
+            dir1	EQU	490ah		;liest ektor aus DIR
+            	ENDIF
+            
+            	IF	m3
+            testpar	EQU	4c7ah
+            getfde	EQU	48dbh
+            cpbchl	EQU	4c6ah
+            dir1	EQU	48afh
+            	ENDIF
+            
+            patch	EQU	cpbchl+6
+            tstdsk	EQU	445bh
+            
+            	ORG	7000h
+            
+            	IF	g3
+38          z80	DEFM	'80',0dh
+E5          start	PUSH	HL		;Eingabepuffer sichern
+21 00 70    	LD	HL,z80
+CD 19 44    	CALL	4419h		;Schirm auf 80 Z schalten
+E1          	POP	HL		;und wieder zurück
+            	ENDIF
+            
+            	IF	NOT,g3
+            start	EQU	$
+            	ENDIF
+AF          	XOR  	A		;NOP für DOS-Routine
+CD 75 70    	        CALL	lwt		;Test ob Laufwerk korrekt
+57          	LD	D,A		;Quellaufwerk nach D
+23          	INC	HL
+23          	INC	HL		;Zeiger auf Ziellaufwerk
+CD 75 70    	CALL	lwt		;Test ob Laufwerk korrekt
+23          	INC	HL		;auf Trennzeichen stellen
+5F          	LD	E,A		;Ziellaufwerk nach E
+CD D5 4C    paralp	CALL	testpar		;nächsten Parameter testen
+DC 6E 70    	CALL	C,sysfehl	;Fehler SYNTAX oder ... Fehler
+CD 7F 70    	CALL	drktest		;auf Option 'P' testen und evtl patchen
+28 F5       	JR	Z,paralp	;nächsten Parameter testen
+FE 0D       	CP	0dh		;Eingabe zuende ?
+28 0B       	JR	Z,start1	;dann beginn mit bearbeitung
+FE 55       	CP	'U'		;nur ungleiche Files ?
+20 ED       	JR	NZ,paralp	;dann weiter testen
+3E CC       	LD	A,0cch		;Op-Code für CALL Z
+32 DD 70    	LD	(ungl),A	;im Programm patchen
+18 E6       	JR	paralp		;und weitere Parameter testen
+            
+            	 				;HX mit 24 laden (Zeilen/Schirm)
+D5          start1	PUSH	DE		;Laufwerke sichern
+7B          	LD	A,E		;Ziellaufwerk nach A
+11 21 71    	LD	DE,dir2-1	;Buffer für Filenamen des 2. DIR
+CD 8F 70    	CALL	länge		;Länge des Dir testen
+C2 72 70    	JP	NZ,dosfeh1	;raus mit Dos-Fehler
+06 00       	LD	B,00h		;muß für UP 0 sein
+CD A2 70    	CALL	fileget		;Filenamen in Puffer 2 lesen
+D1          	POP	DE		;Lw zurück
+7A          	LD	A,D		;Lw in den ACCU
+CD 8F 70    	CALL	länge		;Drive starten und Sektoranzahl patchen
+21 1D 71    	LD	HL,patch1	;Programmänderung
+11 B5 70    	LD	DE,ziel		;dahin
+0E 05       	LD	C,05h		;länge
+ED B0       	LDIR			;und patchen
+            
+            	IF	NOT,g3
+11 00 00    	LD	DE,0f04h	;4 File in 15 Zeilen
+            	ENDIF
+            
+            	IF	g3
+11 06 18    	LD	DE,1806h	;6 Files in 24 Zeilen
+            	ENDIF
+            
+3E C9       	LD	A,0c9h		;RET für 2. Durchgang
+32 CA 70    	LD	(first),A	;da auch patchen;
+AF          	XOR	A
+32 00 00    	LD	(aktsek),A
+CD A2 70    	CALL	fileget		;jezt vergleichen
+3E 0D       	LD	A,0dh		;CR
+CD 0F 71    	CALL	ausa		;und ausgeben (für Drucker)
+F5          ende PUSH	AF
+3E E3       	LD	A,0e3h		;alter Zustand im DOS
+32 CB 4C    	LD	(patch),A	;und wieder herstellen
+F1          	POP	AF
+C9          	RET 			;das wars
+            
+3E 34       sysfehl	LD	A,34h		;'Syntax oder ...' Fehler
+F6 20       lwfehl	OR	20h		;'Unz. oder fehlende Laufwerk'
+E1          dosfeh1	POP	HL		;Stack bereinigen
+18 F1       dosfehl	JR	ende		;zurück mit Fehler
+            
+            	fertig
+            
+            ;++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+            ;
+            ; Ab hier stehen die Unterprogramme in der Reihenfolge ihres Aufrufes
+            ;
+            
+            ; UP LWT: testet ob das Laufwerk in (HL) im bereich von 0-9 liegt.
+            ; wenn nicht: aussprung zu LFFEHL: fehlerausgabe Falsches Laufwerk
+            
+7E          lwt	LD	A,(HL)		;LW nach A
+D6 30       	SUB	30h		;nach binär wandeln
+FE 0A       	CP	0ah		;ist es zwischen 0 und 9 ?
+D8          	RET	C		;zurück wenn ok
+AF          	XOR	A 		;muß sein, um Fehler korrekt anzuzeigen
+C3 70 70    	JP	lwfehl		;und mit Fehler raus
+            
+            ; UP DRKTEST: testet ob Option 'P' angegeben, und patcht eventuell
+            ;             ein paar Routinen
+            
+7E          drktest	LD	A,(HL)		;Zeichen aus Befehlsstring
+FE 50       	CP	'P'		;Druckerausgabe ?
+23          	INC	HL		;auf nächstes Zeichen
+C0          	RET	NZ		;wenn nicht Drucker
+3E 3B       	LD	A,3bh		;Adress LSB Druckertreiber
+32 11 71    	LD	(ausflag),A	;in ausgaberoutine patchen
+3E C9       	LD	A,0c9h		;RET
+32 15 71    	LD	(warte),A	;in warteschleife patchen.Druck kann durchgehend erfolgen
+C9          	RET			;das wars
+            
+            ;UP LÄNGE: liest die Länge des DIR (Lw # in A) aus Dir-Sektor 1
+            ;          und schreibt sie in die Filebearbeitungsroutine
+            
+CD 5B 44    l{nge	CALL	tstdsk		;Motor on und test DISK IN ?
+C0          	RET	NZ		;zurück mit Fehler
+3C          	INC	A		;A auf 1 für Dir-Sektor 1
+CD 0A 49    	CALL	dir1		;Dir-Sektor 1 lesen
+C0          	RET	NZ		;zurück mit Fehler
+3A 1F 42    	LD	A,(421fh)	;Anzahl der DIR-Sektkorken - 0Ah
+C6 08       	ADD	A,08h		;+ 8: Anzahl der Sektoren mit Einträgen
+32 C7 70    	LD	(last),A	;Anzahl in die Leseroutine patchen
+BF          	CP	A		;Z Flag setzen
+C9          	RET			;und zurück
+            
+            	LIST	OFF
+            ;UP FILEGET: holt die nächsten Filenamen die keine SYS-File sind aus
+            ;            dem Direcktory: und schreibt diese in den Puffer ab DE
+3E 00       fileget	LD	A,00h		;aktueller DIR-Sektor
+            aktsek	EQU	$-1
+CD 36 49    	CALL	getfde		;diesen DIR-Sektor lesen
+C2 72 70    	JP	NZ,dosfeh1	;zurück wenn Fehler
+7E          dirlp1	LD	A,(HL)		;Byte 0 des FDE
+E6 D0       	AND	0d0h		;nur Bit 4,6 und 7
+FE 10       	CP	10h		;nur wenn File besetzt, kein Erweiterungseintrag und kein SYS-File
+7D          	LD	A,L		;LSB des FDE nach A (wird noch gebraucht)
+20 08       	JR	NZ,next		;sonst nächsten Eintrag behandeln
+0E 04       	LD	C,04h		;Abstand zum File-Namen
+09          	ADD	HL,BC		;HL auf Filenamen
+            
+70          ziel	LD	(HL),B		;Fileendekennung nach vorne
+0E 0C       	LD	C,0ch		;Länge des Filenamen
+ED B0       	    	LDIR			;Filenamen in Puffer übertragen
+            
+            ;----------------------------------------------------------------
+            ;ziel	INC	HL		;nach dem 1. Durchgang
+            ;	CALL	vergl
+            ;	NOP
+            ;----------------------------------------------------------------
+            
+C6 20       next	ADD	A,20h		;Anfang des nächten FDE
+6F          	LD	L,A		;und zurück nach HL
+30 EB       	JR	NC,dirlp1	;weiter bearbeiten da Sektor noch nicht zuende
+3A A3 70    	LD	A,(aktsek)	;bearbeiteten Sektor nach A
+3C          	INC	A		;auf nächsten Sektor stellen
+32 A3 70    	LD	(aktsek),A	;und zurück damit
+D6 00       	SUB	00h		;mit letztem Sektor vergleichen
+            last	EQU	$-1		;hier wird der letzte Sektor gepatcht
+20 D8       	JR	NZ,fileget	;nächsten Sektor lesen und weitermachen
+12          first	LD	(DE),A		;Endekennung bzw RET bei 2. Durchgang
+13          	INC	DE
+12          	LD	(DE),A
+C9          	RET			;zurück
+            
+            
+            ;UP VERGL: Vergleicht die Filenamen in im Sektor mit denen in dir2
+            ;          es werden alle Filenamen in 'Buffer' verglichen
+            ;          wird der Name gefunden Wird dieser angezeigt wenn 'U' nicht,
+            ;	   ist das Ende von 'Buffer' erreicht und nichts gefunden
+            ;          wird er angezeigt wenn 'U' gegeben ist
+            
+            
+F5          vergl	PUSH	AF		;Register sichern
+01 22 71    	LD	BC,dir2		;Pufferanfang
+0A          vergll	LD	A,(BC)		;Wert aus Puffer
+B7          	OR	A
+28 07       	JR	Z,ungl		;Bufferende
+E5          	PUSH	HL
+CD C5 4C    	CALL	cpbchl		;beide Files vergleichen
+E1          	POP	HL
+D6 34       	SUB	34h		;konvertierung zur Abfrage
+28 F5       	JR	Z,vergll	;nächsten File vergleichen
+C4 E4 70    ungl	CALL	NZ,ausgabe	;File je nach Angabe anzeigen
+F1          	POP	AF
+06 00       	LD	B,0		;muß wieder 0 sein
+C9          	RET
+            
+            	LIST	ON
+            
+            ;UP AUSGABE: gibt den Filenamen in HL auf dem Bildschirm oder Drucker aus
+            ;            und zwar 6 Files nebeneinander und 24 files pro Schirm
+            
+06 08       ausgabe LD	B,08h		;8 Byte Filenamen
+4C          	LD	C,H		;H sichern, wird noch gebraucht
+CD 02 71    	CALL	aushl		;und ausgeben
+06 03       	LD	B,03h		;3 Byte Extension
+CD 02 71    	CALL	aushl		;auch ausgeben
+1D          	DEC	E        	;(Filenamen nebeneinander)
+61          	LD	H,C		;H vorsichtshalber zurück
+C0          	RET	NZ       	;alles klaro
+            
+            	IF	g3
+1E 06       	LD	E,6		;wieder auf 6 stellen
+            	ENDIF
+            	IF	NOT,g3
+1E 00       	LD	E,4		;s.o.
+            	ENDIF
+15          	DEC	D		;Zeilenzähler -1
+20 07       	JR	NZ,neuz		;neue Zeile anzeigen
+            	IF	g3
+16 18       	LD	D,18h		;wieder auf 24 Zeilen stellen
+            	ENDIF
+            	IF	NOT,g3
+16 00       	LD	D,0fh
+            	ENDIF
+EB          	EX	DE,HL		;Zähler sichern
+CD 15 71    	CALL	warte		;auf Tastendruck warten
+EB          	EX	DE,HL		;und Zähler zurück
+3E 0D       neuz	LD	A,0dh		;CR => A
+CD 0F 71    	CALL	ausa		;und anzeigen und zurück
+61          	LD	H,C		;H jetzt entgültig zurück
+C9          	RET
+            
+            ;UP AUSHL: gibt B Zeichen lang (HL) ff aus
+            
+7E          aushl	LD	A,(HL)		;Zeichen in den	ACCU
+CD 0F 71    	CALL	ausa		;und ausgeben
+23          	INC	HL		;auf nächste Stelle
+10 F9       	DJNZ	aushl		;bis alle Angezeigt
+3E 20       	LD	A,20h    	;Trennzeichen
+CD 0F 71    	CALL	ausa		;und ausgeben
+C9          	RET
+            
+            ;UP AUSA: gib den ACCU auf dem Bildschirm oder Drucker aus
+            
+D5          ausa	PUSH	DE		;Zeilenzähler retten
+CD 33 00    	CALL	0033h		;oder 3bh für Drucker
+            ausflag	EQU	$-2
+D1          	POP	DE
+C9          	RET
+            
+            ;UP WARTE: wartet bis CR gedrückt ist
+            
+CD 49 00    warte	CALL	0049h		;auf Tastendruck warten
+FE 0D       	CP	0dh		;war es Enter ?
+C8          	RET	Z		;zurück wenn ja
+18 F8       	JR	warte		;weiter warten
+            
+23          patch1	DEFB	23h		;Op-Code für INC HL
+CD          	DEFB	0cdh		;Op-Code für CALL
+CE 70       	DEFW	vergl		;Adresse für UP
+00          	DEFB	00h		;NOP
+            
+            dir2	DS	098bh		;Platz für Puffer 2
+            	END	start

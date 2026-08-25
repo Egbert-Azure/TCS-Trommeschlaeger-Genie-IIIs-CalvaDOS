@@ -1,0 +1,330 @@
+            ;
+            ;
+            ;	F	I	N	D	/	C	M	D
+            ;
+            ;	soll auf der Hard-, Ram- und eventuell Floppydisk
+            ; 	Programme finden, ähnlich einem DIR */*:*
+            ;	also Filenamen, Extensions und auch Laufwerknummer
+            ;	können beliebig angegeben werden.
+            ;	Die Directoryunterfunktionen I(-nvisible),S(-ystem),
+            ;	A(-lles) werden nicht implementiert.
+            ;	File ist File. Die Laufwerksangabe ist * für alle,
+            ;	bzw. explizite Lw#-angabe.
+            ;	Man kann auch den :* weglassen und enfach ENTER nach der
+            ;	Filespezifikation angeben
+            ;
+            dosrdy	EQU	402dh
+            doserr	EQU	4409h
+            debug	EQU	440dh
+            dirrea	EQU	490ah
+            gibaus	EQU	4467h
+            tesdsk	EQU	445eh
+            ;
+            ;
+            ;
+            ;
+            ;
+            ;	Dies ist ein Teilstück des Programmes
+            ;		KOPIERE/CMD
+            ;	und zwar wird hier die richtige Eingabe des Filenamens
+            ;	kontrolliert, und zwar Test auf ?,* inklusive.
+            ;	Man kann jetzt allerdings auch Zahlen und das Zeichen '_'
+            ;	eingeben(allerdeings auch an erster Stelle, was eigentlich
+            ;	nicht in Ordnung ist).
+            ;
+            	ORG	5200h
+46          fname	DEFM	'FILENAME';wird vom Progr. eingesetzt
+45          exten	DEFM	'EXT'	  ;hier steht dann der Vergleichsstring
+0D          ende	DEFM	0dh
+30          lwnum	DEFM	'0'
+00 00       debuf	DEFW	1004h   ;18h=24 Zeilen mit 6 Filenames /Zeile
+00 00       fdeanz	DEFW	0000h	; hier steht wieviele Files angezeigt wurden
+00          secanz	DEFB	01h	; START der FDE-Sektoren in DIR/SYS
+00          secbuf	DEFB	00h	; Hier wird eingetragen, wie viele DIR-Sektoren
+            ;
+            ;
+            ;
+            
+06 09       start	LD	B,09h	; max. 8Zeichen für Filename
+11 00 52    	LD	DE,fname; Zeiger auf 		"
+7E          loop1	LD	A,(HL)	; zeichen holen
+FE 3F       	CP	'?'	; wenn ja einfach eintragen
+28 16       	JR	Z,wei1
+FE 5F       	CP	'_'
+28 12       	JR	Z,wei1
+FE 30       	CP	'0'	; ist es eine Ziffer
+38 06       	JR	C,buchst
+FE 00       	CP	3ah     ; der Doppelpunkt kommt gleich nach '9'
+30 02       	JR	NC,buchst
+18 08       	JR	wei1
+FE 41       buchst	CP	'A'
+38 0B       	JR	C,kzeich; wenn Carry gesetzt, ist
+            			;das Zeichen in der
+            			;ASCII-Tabelle kleiner als 'A'
+FE 5E       	CP	'^'
+30 07       	JR	NC,kzeich; bzw. es ist oberhalb von 'Ü'
+12          wei1	LD	(DE),A	; buchstaben eintragen
+13          	INC	DE
+23          	INC	HL	; zeiger einen weiter
+10 E0       	DJNZ	loop1	; bis 8 Zeichen
+18 75       	JR	error	; mehr als 8 !!
+FE 3A       kzeich	CP	':'	; laufwerkstrennzeichen?
+28 71       	JR	Z,error	; enter ohne ext ist unzulässig
+FE 2F       	CP	'/'	; einziges zulässiges zeichen
+28 06       	JR	Z,slash	; weiter im text
+FE 2A       	CP	'*'	; jetzt wirds interessant
+28 4B       	JR	Z,stern	; mal sehen
+18 67       	JR	error	; anderes zeichen !!
+78          slash	LD	A,B	; wegen DJNZ
+FE 00       	CP	0h	; 8tes Zeichen ?
+C4 89 52    	CALL	NZ,nulauf; ausnullen mit spaces
+11 08 52    	LD	DE,exten ; zeiger auf extensionstring
+06 04       ext	LD	B,04h	; höchstens drei Buchstaben !
+23          loop2	INC	HL	; eingangs zähler ein weiter
+7E          	LD	A,(HL)
+FE 3F       	CP	'?'	;einfach weiter
+28 0C       	JR	Z,wei2
+FE 20       	CP	' '	; blank ?
+28 08       	JR	Z,wei2	; ist schon o.K.
+FE 41       	CP	'A'
+38 13       	JR	C,keexze; wenn enter, dann o.k.
+FE 00       	CP	'^'
+30 0F       	JR	NC,keexze; dito
+12          wei2	LD	(DE),A	; buchstabe eintragen
+13          	INC	DE
+10 EA       	DJNZ	loop2	; bis 3 Zeichen
+FE 3A       	CP	':'	; 13. Zeichen LW-Doppelpunkt ?
+28 50       	JR	Z,progr;
+FE 0D       	CP	0dh	; ist es Enter ?
+CA 00 00    	JP	Z,alle	; geht auch
+C3 AE 52    	JP	error
+FE 2A       keexze	CP	'*'	; mit ?? aufüllen
+28 21       	JR	Z,stern1
+FE 3A       	CP	':'
+28 41       	JR  	Z,progr; jetzt folgt die LW#
+FE 0D       	CP	0dh	; ENter	?
+CA 00 00    	JP	Z,alle
+CD 89 52    	CALL	nulauf
+3E 0D       	LD	A,0dh
+32 0B 52    	LD	(ende),A
+18 33       	JR	progr
+3E 20       nulauf	LD	A,' '	; space
+12          fill	LD	(DE),A	; in fname eintragen
+13          	INC	DE
+10 FC       	DJNZ	fill
+C9          	RET
+3E 3F       stern	LD	A,'?'	; fuellbyte '?'
+CD 8B 52    	CALL	fill
+23          	INC	HL	; müßte auf '/' zeigen
+18 AF       	JR	slash
+3E 3F       stern1	LD	A,'?'	; füllbyte
+05          	DEC	B
+CD 8B 52    	CALL	fill	; ausfüllen,
+23          	INC	HL	; soll auf ':' zeigen
+11 0B 52    	LD	DE,ende	; aufs ende von fname
+7E          	LD	A,(HL)	; zeichen holen
+FE 3A       	CP	':'	; wegen LW#
+28 15       	JR	Z,progr
+FE 0D       	CP	0dh	; ohne Laufwürgsbezeichnug heißt alle
+CA 86 53    	JP	Z,alle
+18 00       	JR	error	; soll funktionieren
+3E 2F       error	LD	A,2fh 	; 'schlechte parameter
+C3 09 44    	JP	doserr
+D6 30       istzahl	SUB	'0'	; ascii korrektur
+38 F7       	JR	C,error
+FE 0A       	CP	10
+D8          	RET	C
+18 F2       	JR	error
+            ;
+            ;
+            ;  Hier fängt das Hauptprogramm an
+            ;
+DD 21 0F 52 progr	LD	IX,fdeanz	; IX wird der Zähler für die angz.Files
+DD 36 00 00 	LD	(IX+0),00h
+23          	INC	HL	; zeigt jetzt auf lwnummer
+7E          	LD	A,(HL)
+FE 2A       	CP	'*'
+CA 86 53    	JP	Z,alle
+CD B3 52    	CALL	istzahl
+32 0C 52    eindir	LD	(lwnum),A	; hier die Routine für genau 1 Laufwerk
+C6 30       	ADD	A,'0'		; binär=>ASCII
+32 7A 53    	LD	(dnum),A	; ist für U-Prog. zeile
+CD 59 53    	CALL	zeile		; hierwird die Lw# sowie der Name
+CD EC 52    	CALL	diskdir		; des Lw's auf den Bildschirm gebracht
+DD 7E 00    	LD	A,(IX+0)	; Wieviele Files sind angezeigt ?
+FE 00       	CP	00h		; wenn kein File der Spezi. genügte
+C2 2D 40    	JP	NZ,dosrdy	; dann wird die 'zeile' wieder gelöscht
+3E 1B       	LD	A,1bh		; Cursor eine Zeile höher
+CD 33 00    	CALL	0033h		; auf den Bildschirm
+C3 2D 40    	JP	dosrdy		; jetzt aber Abgang
+CD 06 53    diskdir	CALL	ermittl
+3A 11 52    dirwei	LD	A,(secanz)
+3C          	INC	A
+32 11 52    	LD	(secanz),A	; 1 erniedriegen und zurückschr.
+E5          	PUSH	HL
+21 00 00    	LD	HL,secbuf
+BE          	CP	(HL)
+E1          	POP	HL
+C8          	RET	Z		; hier ist der AUSGANG der U-Routine
+CD 0A 49    dirsec	CALL	dirrea		; ließt einen Dirsector
+C2 09 44    	JP	NZ,doserr	; falls ein Fehler auftrat
+CD 14 53    	CALL	auswert
+C3 EF 52    	JP	dirwei
+3E 01       ermittl	LD	A,01h		; HIT-Sector
+CD 0A 49    	CALL	dirrea
+3A 1F 42    	LD	A,(421fh)	; hier steht die Anzahl der
+C6 00       	ADD	A,0ah		; Dirsec. minus 10 inkl.HIT&GAT
+            				; + noch einen weiß der Geiger warum
+32 00 00    	LD	(secbuf),A
+C9          	RET
+01 00 08    auswert	LD	BC,0800h	; 8 Einträge pro Sector
+7E          awloop	LD	A,(HL)		; erstes Zeichen des FDE's
+E6 90       	AND	90h		; alle außer b7 & b4 werden gelöscht
+FE 10       	CP	10h		; ist es ein FPDE ?
+20 0B       	JR	NZ,fxde		; wenn nicht war b7=1 oder b4=0
+            				; herumrechnen zu müssen.
+7D          	LD	A,L		; jetzt soll HL auf den Filename zeigen
+C6 05       	ADD	A,05h		; der ist bei FDE+5
+6F          	LD	L,A		; HL auffrischen
+CD 30 53    	CALL	verglei		; vergleichen und anzeigen
+3E 1B       	LD	A,1bh		; 5 weniger als bei keinem Eintrag
+18 02       	JR	fpde
+3E 20       fxde	LD	A,20h
+85          fpde	ADD	A,L
+6F          	LD	L,A		; HL zeigt auf den nächsten FDE
+10 E8       	DJNZ	awloop		; bis 8 FDE's verglichen wurden
+C9          	RET			; un wieder eine Ebene höher
+C5          verglei	PUSH	BC		; einen Zähler brauch ich selbst
+E5          	PUSH	HL
+06 0B       	LD	B,11		;
+11 00 52    	LD	DE,fname	; Vergleichsfilespezifikation
+            
+1A          verloop	LD	A,(DE)
+FE 3F       	CP	'?'
+28 03       	JR	Z,veregal		; wenn ?, dann ist alles erlaubt
+BE          	CP	(HL)		; ist es gleich dem FDE ?
+20 14       	JR	NZ,zurück	; falls nciht, noch mal POPen
+13          veregal	INC	DE
+23          	INC	HL		; beide Zeiger ein Weiter
+10 F4       	DJNZ	verloop		; 11 zeichen
+E1          	POP	HL
+E5          	PUSH	HL
+ED 5B 0D 52 eintrag	LD	DE,(debuf)
+CD C1 53    	CALL	ausgabe
+ED 53 0D 52 	LD	(debuf),DE
+DD 34 00    	INC	(IX+0)		; fdeanzahl=fdeanz+1
+E1          zur}ck	POP	HL
+C1          	POP	BC
+C9          	RET
+C3 2D 40    dirfert	JP	dosrdy
+            ;
+            ;
+            ;
+            ;
+3A 0C 52    zeile	LD	A,(lwnum)	;Hier wird die Laufwerksnummer und der
+CD 5E 44    	CALL	tesdsk		;Diskettenname auf dem Bildschirm
+C2 09 44    	JP	NZ,doserr	; angezeigt.
+3E 00       	LD	A,00h		; Name ist im GAT-Sector an Position
+CD 00 00    	CALL	dirrea		; Byte D0h bis D7h
+21 D0 42    	LD	HL,42d0h
+11 7C 53    	LD	DE,dname
+01 08 00    	LD	BC,0008h	; 8 Zeichen
+ED B0       	LDIR
+21 79 53    	LD	HL,zeitxt
+CD 67 44    	CALL	gibaus		; den gesamten String ausgeben
+C9          	RET			; ist ein Unterprogramm
+00          zeitxt	DEFM	'in :'
+00          dnum	DEFB	00h
+7F          	DEFM	''
+44          dname	DEFM	'DISKNAME ',0dh
+            ;
+            ;
+            ;
+3E 09       alle	LD	A,09h		; alle heißt das ein oder mehrer Files
+32 0C 52    aloop	LD	(lwnum),A	; auf allen verfügbaren Laufwerken gesuch
+CD 5E 44    	CALL	tesdsk		; ist überhaupt erreichbar ?
+20 1E       	JR	NZ,is_nich	; zerobit =0 bei keinem fehler
+3A 0C 52    is_doch	LD	A,(lwnum)
+C6 30       	ADD	A,'0'		; binär => ASCII
+32 7A 53    	LD	(dnum),A	; in zeitxt
+DD 36 00 00 	LD	(IX+0),00h	; fdezähler
+CD 59 53    	CALL	zeile		; Diskname usw.
+CD EC 52    	CALL	diskdir		; Inhaltsverzeichnis durchstöbern
+DD 7E 00    	LD	A,(IX+0)	; ist mindestens ein File gefunden worden
+FE 00       	CP	00h
+20 05       	JR	NZ,is_nich
+3E 1B       	LD	A,1bh		; cursor eine Zeile höher
+CD 33 00    	CALL	0033h
+3E 0B       is_nich	LD	A,0bh		; zeilenvorschub wenn nicht schon
+CD 33 00    	CALL	0033h
+3E 00       	LD	A,01h		; bei 'alle' muß jedesmal der secanz neu
+32 00 00    	LD	(secanz),A	; auf den ersten DEC-Sektor gesetzt werdn
+3A 0C 52    	LD	A,(lwnum)
+3D          	DEC	A
+32 0C 52    	LD	(lwnum),A
+FE 01       	CP	01h		; 9 laufwerke durch ?
+20 CA       	JR	NZ,aloop	; sonst weiter suchen
+C3 2D 40    	JP	dosrdy
+            ;
+            ;
+            ;	Ab hier liegen Unterroutinen, die ich von Andreas Magnus
+            ;	einfach übernommen habe. Moin, moin Andreas !
+            ;	Sie stammen aus seinem höchst nützlichen Programm
+            ;
+            ;	   DIRVERGL/CMD
+            ; 	Und machen die Bildschirmausgabe so schön einfach.
+            ;
+            ;UP AUSGABE: gibt den Filenamen in HL auf dem Bildschirm oder Drucker aus
+            ;            und zwar 6 Files nebeneinander und 24 files pro Schirm
+            
+06 08       ausgabe LD	B,08h		;8 Byte Filenamen
+4C          	LD	C,H		;H sichern, wird noch gebraucht
+CD E2 53    	CALL	aushl		;und ausgeben
+3E 00       	LD	A,20h		; ein Space zum Trennen
+CD 00 00    	CALL	ausa
+06 03       	LD	B,03h		;3 Byte Extension
+CD E2 53    	CALL	aushl		;auch ausgeben
+3E 00       	LD	A,':'
+CD 00 00    	CALL	ausa		; hier den Doppelpunkt
+1D          	DEC	E        	;(Filenamen nebeneinander)
+61          	LD	H,C		;H vorsichtshalber zurück
+C0          	RET	NZ       	;alles klaro
+            
+1E 00       	LD	E,4		;wieder auf 6 stellen
+15          	DEC	D		;Zeilenzähler -1
+20 07       	JR	NZ,neuz		;neue Zeile anzeigen
+16 00       	LD	D,10h		;wieder auf 24 Zeilen stellen
+EB          	EX	DE,HL		;Zähler sichern
+CD F5 53    	CALL	warte		;auf Tastendruck warten
+EB          	EX	DE,HL		;und Zähler zurück
+3E 0D       neuz	LD	A,0dh		;CR => A
+CD EF 53    	CALL	ausa		;und anzeigen und zurück
+61          	LD	H,C		;H jetzt entgültig zurück
+C9          	RET
+            
+            ;UP AUSHL: gibt B Zeichen lang (HL) ff aus
+            
+7E          aushl	LD	A,(HL)		;Zeichen in den	ACCU
+CD EF 53    	CALL	ausa		;und ausgeben
+23          	INC	HL		;auf nächste Stelle
+10 F9       	DJNZ	aushl		;bis alle Angezeigt
+C9          	RET
+            
+            ;UP AUSA: gib den ACCU auf dem Bildschirm oder Drucker aus
+            
+D5          ausa	PUSH	DE		;Zeilenzähler retten
+CD 33 00    	CALL	0033h		;oder 3bh für Drucker
+D1          	POP	DE
+C9          	RET
+            
+            ;UP WARTE: wartet bis CR gedrückt ist
+            
+CD 49 00    warte	CALL	0049h		;auf Tastendruck warten
+FE 0D       	CP	0dh		;war es Enter ?
+C8          	RET	Z		;zurück wenn ja
+18 F8       	JR	warte		;weiter warten
+            ;
+            ;
+            ;
+            ;
+            	END	start

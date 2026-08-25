@@ -1,0 +1,121 @@
+            ;
+            ;	WO/CMD
+            ;
+            ; 	Programm, um genau ein bestimmtes Programm auf allen
+            ;	angeschlossenen Laufwerken zu finden.
+            ;	Der Suchvorgang funktioniert mit der Errechnung des
+            ;	HASH-Codes, es muß von jedem Laufwerk also nur der HIT-
+            ;	Sector eingelesen werden.
+            ;	Das geht natürlich erheblich schneller.
+            ;
+            dosrdy	EQU	402dh
+            gibaus	EQU	4467h
+            doserr	EQU	4409h
+            debug	EQU	440dh
+            tstdsk	EQU	445eh
+            dirrea	EQU	490ah
+            getfde	EQU	4936h
+            ;
+            	ORG 5200h
+20          filspe	DEFM	20h,20h,20h,20h,20h,20h,20h,20h; 8 Zeichen Filespec.
+20          extspe	DEFM	20h,20h,20h	; 3 Zeichen für Extension
+00          aktlw	DEFM	00	; Suche starten bei LW# 0, wird hochgezählt
+00          hashco	DEFM	00h	;hier wird der errechnete Hashcode eingetragen
+            ;
+E5          start	PUSH	HL	; zeigt auf den eingegenben Filenamen
+11 00 52    	LD	DE,filspe
+06 09       	LD	B,09h	; 8 Zeichen für			"
+7E          nloop	LD	A,(HL)
+FE 0D       	CP	0dh	; ENTER ?
+28 28       	JR	Z,rechne
+FE 2F       	CP	'/'	; Trennzeichen zur Extension ?
+28 0C       	JR	Z,ext
+12          	LD	(DE),A
+13          	INC	DE
+23          	INC	HL
+10 F2       	DJNZ	nloop	; bis 8 Zeichen in Buffer übertragen(Höchstens)
+FE 2F       	CP	'/'	; folgt jetzt der slash ?
+3E 13       	LD	A,13h
+C2 09 44    	JP	NZ,doserr
+06 03       ext	LD	B,03h	; 3Zeichen für Extension
+23          	INC	HL
+11 08 52    	LD	DE,extspe
+7E          eloop	LD	A,(HL)
+FE 0D       	CP	0dh
+28 0D       	JR	Z,rechne
+12          	LD	(DE),A
+13          	INC	DE
+23          	INC	HL
+10 F6       	DJNZ	eloop
+7E          	LD	A,(HL)
+FE 0D       	CP	0dh	; hernach also hier muß!! Enter sein
+3E 13       	LD	A,13h
+C2 09 44    	JP	NZ,doserr
+21 00 52    rechne	LD	HL,filspe	; diese Routine errechnet den HASH-Code
+06 0B       	LD	B,0bh		; sie ist abgeschrieben aus SYS2/SRC
+AF          	XOR	A
+AE          rloop	XOR	(HL)
+23          	INC	HL
+07          	RLCA
+10 FB       	DJNZ	rloop
+20 01       	JR	NZ,fertig
+3C          	INC	A
+32 0C 52    fertig	LD	(hashco),A	; abspeichern.
+            ;	Der HASH-Code ist errechnet, jetzt müssen alle HIT-Sectoren
+            ;	eingelesen und der Inhalt derselben mit dem hashco verglichen
+            ;	werden. Dann muss der jeweilige FDE geholt werden und mit
+            ;	filspe verglichen werden. Erst dann ist der Filename gefunden.
+            ;
+3A 0B 52    drloop	LD	A,(aktlw)	; LW# laden
+CD 5E 44    	CALL	tstdsk		; ist eine Disk eingelegt ??
+CC 71 52    	CALL	Z,liehit	; wenn ja, lies den HIT-Sector
+3A 0B 52    	LD	A,(aktlw)
+3C          	INC	A
+FE 0A       	CP	0ah		; schon über 9 hinaus ?
+CA 68 52    	JP	Z,ende
+32 0B 52    	LD	(aktlw),A
+18 E9       	JR	drloop
+21 DE 52    ende	LD	HL,text1
+CD 67 44    	CALL	gibaus
+C3 2D 40    	JP	dosrdy
+3E 01       liehit	LD	A,01h		; HIT-Sector
+CD 0A 49    	CALL	dirrea
+C2 09 44    	JP	NZ,doserr	; falls Fehler(sehr unwahrscheinlich)
+06 FF       	LD	B,0ffh
+3A 0C 52    	LD	A,(hashco)
+BE          sloop	CP	(HL)		; sucht den gesamten Sectorpuffer ab
+CC 86 52    	CALL	Z,su_fde	; wenn der hashcode stimmt, muß der
+23          	INC	HL		; zuständige FDE mt filspe verglichen
+10 F9       	DJNZ	sloop		; werden.
+            
+C9          	RET
+E5          su_fde	PUSH	HL
+F5          	PUSH	AF
+C5          	PUSH	BC
+7D          	LD	A,L		; L ist LSB des Sectropufferzeigers,
+CD 36 49    	CALL	getfde		; und ist genau der FDE im Directory
+11 00 52    	LD	DE,filspe
+01 05 00    	LD	BC,0005h	; FILENAME steht an 5.ter Stelle
+09          	ADD	HL,BC		; jetzt zeigt HL auf den FILENAMEEXT
+06 0B       	LD	B,0bh
+1A          fdloop	LD	A,(DE)
+BE          	CP	(HL)
+20 12       	JR	NZ,nein
+13          	INC	DE
+23          	INC	HL
+10 F8       	DJNZ	fdloop
+3A 0B 52    ja	LD	A,(aktlw)
+C6 30       	ADD	A,'0'		; binär => ASCII
+32 DA 52    	LD	(lwnum),A
+21 B5 52    	LD	HL,text2
+CD 67 44    	CALL	gibaus
+3E 01       nein	LD	A,01h		; der HIT-Sector muss wieder eingelesen
+CD 0A 49    	CALL	dirrea		; werden, er wurde überschrieben
+C1          	POP	BC
+F1          	POP	AF
+E1          	POP	HL
+C9          	RET
+00          text2	DEFM	'File gefunden auf Laufwerk# '
+00          lwnum	DEFM	'0.',0dh
+41          text1	DEFM	'Alle Laufwerke sind durchsucht.',0dh
+            	END	start

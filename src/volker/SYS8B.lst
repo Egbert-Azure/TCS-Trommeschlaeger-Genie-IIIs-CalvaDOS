@@ -1,0 +1,718 @@
+            ;************************************************************************
+            ; SYS8 vom G-DOS 2.4
+            ;
+            ;
+            ; Disassembliert und kommentiert von
+            ; A.Magnus   HACKNUS - SOFTWARE
+            ;
+            ; Name: SYS8/SRC
+            ;
+            ; Datum:08.09.89
+            ;
+            ;************************************************************************
+            m1916	EQU	1916h
+            m4380	EQU	4380h
+            m43a0	EQU	43a0h		;SYSTEM AN (DRIVE # für DIR)
+            m4409	EQU	4409h		;DOS ERROR EXIT
+            m492f	EQU	492fh		;FDE einer File aus dem Directory holen
+            m4cd5	EQU	4cd5h		;Zeichen in (HL) testen
+            	ORG	4d00h
+FD 21 80 43 	LD	IY,m4380
+F5          	PUSH	AF
+3A 16 19    	LD	A,(m1916)
+B7          	OR	A
+20 02       	JR	NZ,m4d0d
+3E 10       	LD	A,10h
+D6 03       m4d0d	SUB	03h
+FD 77 FE    	LD	(IY+0efh),A
+F1          	POP	AF		;Wert in A bei RST 28
+FE 2A       	CP	2ah		;ist es DIR ?
+28 45       	JR	Z,m4d5c		;ja
+FE 4A       	CP	4ah		;ist es FREE ?
+3E 2A       	LD	A,2ah		;Fehler Code 'Unz. DOS - Funktion'
+C0          	RET	NZ		;zurück wenn nicht Dir oder Free
+CD 88 50    free	CALL	m5088		;Wenn 'P' auf Drucker umleiten
+FE 0D       	CP	0dh		;Eingabe zuende ?
+20 2A       	JR	NZ,m4d4d	;wenn nicht
+0E 00       	LD	C,00h		;ab Lw 0
+CD AE 50    	CALL	m50ae		;Blank u. CR anzeigen
+FD 46 FE    m4d28	LD	B,(IY+0efh)
+CD F9 4F    m4d2b	CALL	m4ff9
+28 0A       	JR	Z,m4d3a
+FE 20       	CP	' '
+CA D9 4F    	JP	Z,m4fd9
+FE 08       	CP	08h
+20 16       	JR	NZ,m4d4f	;Fehler
+04          	INC	B
+0C          m4d3a	INC	C
+10 EE       	DJNZ	m4d2b
+CD 9B 50    	CALL	m509b		;Screen full ?
+18 E6       	JR	m4d28
+            
+3E 00       m4d42	LD	A,00h		;hier wird der Directory Entry Code gepatcht
+            m4d43	EQU	$-1
+32 00 00    m4d44	LD	(m4d43),A	;neuen DEC patchen (s.o.)
+CD 00 00    m4d47	CALL	m492f		;FDE aus dem Directory holen A=DEC bei aufruf
+C8          	RET	Z		;HL = Byte 0 des FDE. zurück wenn OK.
+18 00       	JR	m4d4f		;Fehler
+            
+3E 00       m4d4d	LD	A,34h		;Fehler 'Syntax oder Trennzeichen...'
+F5          m4d4f	PUSH	AF
+21 00 00    	LD	HL,m5155	;Text 'DOS-',03
+21 00 00    m4d53	LD	HL,m4fbb	;wird evtl zu 'CALL 4FBB'
+F1          	POP	AF
+B7          	OR	A
+C8          	RET	Z		;kein Fehler
+C3 09 44    	JP	m4409		;raus mit Fehler
+            
+            ;Einsprung bei DIR	B sind Flags für verschiedene Parameter bei DIR
+3A A0 43    m4d5c	LD	A,(m43a0)	;SYSTEM AN (Drive # für DIR)
+4F          	LD	C,A		;nach C
+06 00       	LD	B,00h
+7E          	LD	A,(HL)		;nächstes Zeichen
+FE 3A       	CP	':'
+20 01       	JR	NZ,m4d68
+23          	INC	HL		;Zeiger auf nächstes Zeichen
+7E          m4d68	LD	A,(HL)		;Nächstes Zeichen
+FE 24       	CP	'$'		;Drive 0 ohne System
+20 00       	JR	NZ,m4d70	;wenn nicht
+CB F0       	SET	6,B		;Flag '$' (I 0  ohne SYS)
+23          	INC	HL		;Zeiger weiter
+7E          m4d70	LD	A,(HL)		;Zeichen laden
+D6 00       	SUB	30h		;in Binär wandeln
+FE 0A       	CP	0ah		;Drive # über 9 ?
+30 1E       	JR	NC,m4d95	;ja, Fehler
+4F          m4d77	LD	C,A		;Drive # nach C
+23          	INC	HL		;Zeiger höher
+7E          	LD	A,(HL)		;Zeichen laden
+D6 00       	SUB	30h		;in Binär wandeln
+FE 0A       	CP	0ah		;> 9 ?
+30 11       	JR	NC,m4d91	;Sprung wenn ja
+5F          	LD	E,A		;Zeichen nach E
+79          	LD	A,C		;Drive # nach a
+16 09       	LD	D,09h
+81          m4d84	ADD	A,C		;A + Drive #
+38 00       	JR	C,m4d8d		;wenn > FF
+15          	DEC	D		;D - 1
+20 FA       	JR	NZ,m4d84	;9 mal
+83          	ADD	A,E		;Drive * 9 + letzte eingabe
+30 00       	JR	NC,m4d77	;weiter suchen
+3E 20       m4d8d	LD	A,20h		;Fehlercode 'unz. oder fehl. Lw'
+18 BE       	JR	m4d4f		;raus mit Fehler
+            
+CD D5 4C    m4d91	CALL	m4cd5		;Zeichen in (HL) testen
+D8          	RET	C		;weder ENTER noch Komma oder Blank
+CD 88 50    m4d95	CALL	m5088		;Wenn 'P' auf Drucker umleiten
+28 00       	JR	Z,m4d91		;weiter suchen
+FE 0D       	CP	0dh
+28 43       	JR	Z,m4de1		;ENTER ?
+FE 41       	CP	'A'		;DIR A
+20 04       	JR	NZ,m4da6	;da weiter
+            
+            ;DIR A...
+CB C0       	SET	0,B		;Flag für 'A'
+18 00       	JR	m4d91		;nächster Parameter
+            
+FE 53       m4da6	CP	'S'		;mit SYSTEM Files
+20 04       	JR	NZ,m4dae	;nein
+CB C8       	SET	1,B		;Flag 'S' (mit SYS)
+18 E3       	JR	m4d91
+            
+FE 49       m4dae	CP	'I'		;Mit unsichtbaren ?
+20 04       	JR	NZ,m4db6
+CB D0       	SET	2,B		;Flag 'I' (unsichtbar)
+18 DB       	JR	m4d91
+FE 42       m4db6	CP	'B'		;nur die die bearbeitet wurden
+20 04       	JR	NZ,m4dbe
+CB E8       	SET	5,B		;Flag 'B' (nur verändert)
+18 D3       	JR	m4d91
+            
+FE 2F       m4dbe	CP	'/'		;best Extension ?
+C2 4D 4D    	JP	NZ,m4d4d
+CB E0       	SET	4,B		; Flag '/' (nur mit EXT)
+C5          	PUSH	BC
+06 03       	LD	B,03h
+11 00 00    	LD	DE,m5144	;Text '   DISK IN ?'
+7E          m4dcb	LD	A,(HL)		;Drive #
+D6 00       	SUB	30h		;=> binär
+FE 0A       	CP	0ah
+38 06       	JR	C,m4dd8
+D6 0F       	SUB	0fh
+FE 1E       	CP	1eh
+30 06       	JR	NC,m4dde
+7E          m4dd8	LD	A,(HL)		;Zeichen der Extension
+12          	LD	(DE),A		;in Puffer für Extension
+13          	INC	DE
+23          	INC	HL
+10 ED       	DJNZ	m4dcb
+C1          m4dde	POP	BC		;Flags zurück
+18 00       	JR	m4d91		;weitere Parameter ?
+            
+            ;DIR endlich bearbeiten
+CB 70       m4de1	BIT	6,B		;Flag '$' (I 0 ohne SYS) ?
+28 00       	JR	Z,m4dfe		;nein
+79          	LD	A,C		;Drive #
+B7          	OR	A
+20 00       	JR	NZ,m4dee	;niht Drive 0
+3E 00       	LD	A,0cdh		;Op-code CALL
+32 00 00    	LD	(m4d53),A	;in Ausgaberoutine patchen
+C5          m4dee	PUSH	BC		;Flags retten
+06 00       	LD	B,00h
+21 4F 51    	LD	HL,m514f	;eine Stelle nach '   DISK IN'
+CD E8 50    	CALL	m50e8
+C1          	POP	BC
+21 00 00    	LD	HL,m5159	;Text 'DRIVE :'
+CD 00 00    	CALL	m4fbb		;augeben und 'DISK in 000 ?'
+CD 00 00    m4dfe	CALL	m4ff9		;normales DIR: Kopfzeile berechnen und ausgeben
+C2 00 00    	JP	NZ,m4d4f	;raus wenn Fehler
+AF          	XOR	A		;Directory Entry Code 0
+CD 00 00    	CALL	m4d44		;FED von DIR lesen (HL = Byte 0 von FED)
+            				;FED = File Directory Eintrag
+CD AE 50    	CALL	m50ae		;Blank u. CR anzeigen
+FD 56 00    	LD	D,(IY+0efh)	;(436F) Zeilen/Screen - 3(13 bei 64 und 22 bei 80 Z/Screen)
+CD 00 00    	CALL	m4fe5		;Test ob DIR,A und evtl Kopfzeile dafür ausgeben
+D5          	PUSH	DE
+0E 00       	LD	C,05h		;5 Files nebeneinander
+C3 00 00    	JP	m4f58		;da weiter
+            
+D5          m4e17	PUSH	DE		;File bearbeiten und anzeigen
+C5          	PUSH	BC
+E5          	PUSH	HL
+EB          	EX	DE,HL		;DE = FDE (Byte 0 des FDE)
+21 00 00    	LD	HL,m51b4	;'SIEFBMPB'
+06 00       	LD	B,07h		;7 Zeichen
+E5          	PUSH	HL
+36 00       m4e21	LD	(HL),'-'	;Flag ist nicht gesetzt
+23          	INC	HL
+10 00       	DJNZ	m4e21		;überall eintragen
+1A          	LD	A,(DE)		;Byte 0 des FDE => A
+E6 00       	AND	07h		;nur den Zugriffs Level
+C6 00       	ADD	A,30h		;in ASCII wandeln
+77          	LD	(HL),A		;und in Ausgabestring eintragen
+E1          	POP	HL
+1A          	LD	A,(DE)		;wieder Byte 0 des FDE
+CB 47       	BIT	6,A		;SYS-File ?
+28 00       	JR	Z,m4e34		;nein
+36 00       	LD	(HL),'S'	;sonst Ausgabeflag setzten
+23          m4e34	INC	HL		;nächste Ausgabestelle
+CB 47       	BIT	3,A		;unsichtbar ?
+28 00       	JR	Z,m4e3b		;nein
+36 00       	LD	(HL),'I'	;Flag setzen
+23          m4e3b	INC	HL
+13          	INC	DE		;Byte 1 des FDE
+1A          	LD	A,(DE)		;in den ACCU
+07          	RLCA			;Platz reserviert ?
+30 00       	JR	NC,m4e43	;wenn nicht: weiter
+36 00       	LD	(HL),'E'	;Flag für Reserviert setzen
+23          m4e43	INC	HL
+07          	RLCA			;Platz freigeben ?
+30 00       	JR	NC,m4e49	;weiter wenn nicht
+36 00       	LD	(HL),'F'	;sonst Flag setzen
+23          m4e49	INC	HL
+07          	RLCA			;File bearbeitet ?
+30 00       	JR	NC,m4e4f	;nein dann da weiter
+36 00       	LD	(HL),'B'	;Bearbeitungs-Flag
+21 00 00    m4e4f	LD	HL,m0004	;4 Byte Distanz
+19          	ADD	HL,DE		;HL jetzt auf Byte 5 des FDE (NAME)
+01 00 00    	LD	BC,m080d	;8 Zeichen filename 0D Zeichen gesamt
+CD C2 50    	CALL	m50c2		;B-Bytes ab (HL) anzeigen, ohne Blank
+7E          	LD	A,(HL)		;nächstes Byte des FDE (EXT)
+FE 20       	CP	' '
+28 00       	JR	Z,m4e65		;wenn Extension leer ist
+3E 00       	LD	A,'/'		;Trennzeichen
+06 00       	LD	B,04h		;mit / sind es 4 Zeichen
+CD 00 00    	CALL	m50c4		;4 Zeichen ohne Blank anzeigen
+41          m4e65	LD	B,C		;Rest von 0D nach B
+CD BA 50    	CALL	m50ba		;B * Blank anzeigen
+D5          	PUSH	DE		;wird noch gebraucht
+5E          	LD	E,(HL)		;Byte 10 des FDE
+23          	INC	HL
+56          	LD	D,(HL)		;und 11 auch (Update Passwort)
+D5          	PUSH	DE
+23          	INC	HL
+5E          	LD	E,(HL)
+23          	INC	HL
+56          	LD	D,(HL)		;Byte 12 und 13 (Access Passwort)
+21 00 00    	LD	HL,m4296
+DF          	RST	18H
+28 FE       	JR	Z,m4e7d
+3E 42       	LD	A,'B'
+32 BA 51    	LD	(m51ba),A		;SIEFBM b P
+D1          m4e7d	POP	DE
+DF          	RST	18H
+28 FE       	JR	Z,m4e86
+3E 48       	LD	A,'H'
+32 B9 51    	LD	(m51b9),A		;SIEFB m BP
+D1          m4e86	POP	DE
+E1          	POP	HL
+C1          	POP	BC
+CB 40       	BIT	0,B		;Flag 'A' ?
+20 00       	JR	NZ,m4e97	;ja: da weiter
+C5          	PUSH	BC
+06 02       	LD	B,02h
+CD BA 50    	CALL	m50ba		;B * Blank anzeigen
+C1          	POP	BC
+C3 00 00    	JP	m4f45		;nächsten FDE bearbeiten
+            
+            ;DIR A (nachdem der Filename ausgegeben ist) Datum aus FDE holen
+E5          m4e97	PUSH	HL		;HL = FDE Byte 0
+C5          	PUSH	BC
+1A          	LD	A,(DE)		;Byte 1 des FDE
+E6 00       	AND	1fh		;nur Bit 0 - 4 (A => TAG)
+21 00 00    	LD	HL,m51e8	;Puffer
+F5          	PUSH	AF
+13          	INC	DE		;Byte 2 des FDE
+1A          	LD	A,(DE)		;nach ACCU => Monat und Jahr
+77          	LD	(HL),A		;und in den PUFFER
+3E 00       	LD	A,05h		;
+ED 67       	RRD			;Monat in den ACCU (Puffer = 5x: d.h. das x. Jahr nach 80. Jahr = 1980 - 1995)
+23          	INC	HL		;nächste Pufferstelle
+77          	LD	(HL),A		;den Monat in den Puffer
+23          	INC	HL
+F1          	POP	AF
+77          	LD	(HL),A		;den Tag dahinter
+E5          	PUSH	HL
+D1          	POP	DE
+21 8F 51    	LD	HL,m518f		;'TT.MM.JJ'
+E5          	PUSH	HL
+CD 00 00    	CALL	m44c5		;Datum in Kopfzeile übertragen
+E1          	POP	HL
+CD B7 50    	CALL	m50b7		;String anzeigen
+C1          	POP	BC		;Flags zurück
+E1          	POP	HL		;Byte 0 des FDE
+0E 01       	LD	C,01h
+C5          	PUSH	BC
+E5          	PUSH	HL
+23          	INC	HL
+23          	INC	HL
+23          	INC	HL
+5E          	LD	E,(HL)		;Byte 3. EOF
+16 00       	LD	D,00h
+23          	INC	HL
+42          	LD	B,D
+4E          	LD	C,(HL)
+CB E5       	SET	4,L
+7E          	LD	A,(HL)
+23          	INC	HL
+E5          	PUSH	HL
+66          	LD	H,(HL)
+6F          	LD	L,A
+7B          	LD	A,E
+B7          	OR	A
+28 FE       	JR	Z,m4ed4
+2B          	DEC	HL
+0C          m4ed4	INC	C
+0D          	DEC	C
+20 FE       	JR	NZ,m4eda
+06 01       	LD	B,01h
+D5          m4eda	PUSH	DE
+E5          	PUSH	HL
+C5          	PUSH	BC
+20 FE       	JR	NZ,m4ee2
+5D          	LD	E,L
+6C          	LD	L,H
+62          	LD	H,D
+C4 00 00    m4ee2	CALL	NZ,m50d6
+B7          	OR	A
+28 FE       	JR	Z,m4eec
+1C          	INC	E
+20 FE       	JR	NZ,m4eec
+23          	INC	HL
+7C          m4eec	LD	A,H
+45          	LD	B,L
+4B          	LD	C,E
+21 00 00    	LD	HL,m51a6	;' 00000000' Records
+11 00 00    	LD	DE,m512f
+CD 00 00    	CALL	m50f1
+C1          	POP	BC
+21 00 00    	LD	HL,m51a2	;' 000' Log. Rec. länge
+CD E8 50    	CALL	m50e8
+C1          	POP	BC
+21 00 00    	LD	HL,m5198	;' 00000/000' EOF
+11 00 00    	LD	DE,m5138
+CD 00 00    	CALL	m50f0
+36 30       	LD	(HL),'0'
+C1          	POP	BC
+E5          	PUSH	HL
+CD E8 50    	CALL	m50e8
+E1          	POP	HL
+36 2F       	LD	(HL),'/'
+E1          	POP	HL
+23          	INC	HL
+01 00 00    	LD	BC,m0000
+7E          m4f18	LD	A,(HL)
+FE FE       	CP	0feh
+23          	INC	HL
+30 FE       	JR	NC,m4f29
+03          	INC	BC
+23          	INC	HL
+CB 65       	BIT	4,L
+20 FE       	JR	NZ,m4f18
+3E 2C       	LD	A,','
+C3 00 00    	JP	m4d4f		;zurück
+            
+20 00       m4f29	JR	NZ,m4f34
+7E          	LD	A,(HL)
+CD 00 00    	CALL	m4d47
+C6 16       	ADD	A,16h
+6F          	LD	L,A
+18 FE       	JR	m4f18
+            
+CD 00 00    m4f34	CALL	m4d42
+21 00 00    	LD	HL,m51af	;' 000 ' Erweiterungen
+CD E8 50    	CALL	m50e8
+21 00 00    	LD	HL,m5198	;' 00000/000' EOF
+CD B7 50    	CALL	m50b7		;String anzeigen
+E1          	POP	HL
+C1          	POP	BC
+7D          m4f45	LD	A,L		;LSB des FDE
+C6 00       	ADD	A,20h		;Anfang des nächsten FDE
+6F          	LD	L,A		;zurück
+30 00       	JR	NC,m4f58	;noch im gleichen Sektkorken
+3A 00 00    	LD	A,(m4d43)	;letzter DEC
+E6 1F       	AND	1fh
+3C          	INC	A		;+ 1 für nächsten DIR-Sektor
+FE 00       	CP	00h		;hier wurde der letzte DIR-Sect. gepatcht
+            m4f52	EQU	$-1
+28 00       	JR	Z,m4fd0		;Letzter Dir Sektor erreicht : ENDE
+CD 00 00    	CALL	m4d44		;nächsten FDE lesen im neuen Sektor
+7E          m4f58	LD	A,(HL)		;Byte 0 vom FDE
+E6 00       	AND	90h		;nur Bit 7 und 4
+FE 00       	CP	10h		;ist der FDE benutzt ?
+20 00       	JR	NZ,m4f45	;dahin wenn nicht
+78          	LD	A,B		;Flags
+E6 00       	AND	30h		;nur Bit 4 und 5 (/EXT oder 'B')
+20 00       	JR	NZ,m4f75	;wenn einer von beiden
+CB 46       	BIT	6,(HL)		;SYS-File ?
+28 00       	JR	Z,m4f6c		;nein
+CB 48       	BIT	1,B		;Flag 'S' (mit SYS) ?
+18 00       	JR	m4f72		;da weiter
+            
+CB 46       m4f6c	BIT	3,(HL)		;unsichtbar ?
+28 00       	JR	Z,m4f75		;nein
+CB 50       	BIT	2,B		;Flag 'I' (unsichtbar) ?
+CA 00 00    m4f72	JP	Z,m4f45		;nein
+CB 40       m4f75	BIT	4,B		;Flag '/' (nur mit EXT) ?
+28 00       	JR	Z,m4f95		;nein
+E5          	PUSH	HL
+C5          	PUSH	BC
+11 00 00    	LD	DE,m000d	;Offset zur EXTENSION
+19          	ADD	HL,DE		;zu HL dazu
+11 00 00    	LD	DE,m5144	;da steht die EXT vom Aufruf
+06 00       	LD	B,03h		;Länge
+1A          m4f84	LD	A,(DE)		;Zeichen laden
+FE 00       	CP	'?'		;steht da ein Platzhalter ?
+20 00       	JR	NZ,m4f8a	;nein
+7E          	LD	A,(HL)		;Zeichen aus DEC holen (wird gleich mit sich selbst verglichen)
+BE          m4f8a	CP	(HL)		;Zeichen mit dem aus DEC vergleichen
+13          	INC	DE
+23          	INC	HL		;beide Zeiger erhöhen
+20 00       	JR	NZ,m4f91	;wenn nicht gleich hier aushören
+10 00       	DJNZ	m4f84		;bis alle 3 überprüft sind
+C1          m4f91	POP	BC
+E1          	POP	HL
+20 00       	JR	NZ,m4f45	;wenn falsche Extension nächsten Eintrag bearbeiten
+CB 40       m4f95	BIT	5,B		;Flag 'B' (nur verändert) ?
+28 00       	JR	Z,m4f9f		;nein
+23          	INC	HL		;Byte 1 vom FDE
+CB 46       	BIT	5,(HL)		;File bearbeitet ?
+2B          	DEC	HL		;wieder auf Byte 0
+28 00       	JR	Z,m4f45		;nächsten Eintrag wenn dieser nicht verändert
+D1          m4f9f	POP	DE
+0D          	DEC	C		;Files nebeneinander - 1
+20 00       	JR	NZ,m4fb8	;wenn noch Platz ist
+0E 04       	LD	C,04h
+CD AE 50    	CALL	m50ae		;Blank u. CR anzeigen
+15          	DEC	D
+20 FE       	JR	NZ,m4fb8
+CD 00 00    	CALL	m509b		;Screen full ? evtl. auf <CR> warten
+FD 56 00    	LD	D,(IY+0efh)	;(436F) Zeilen/Screen - 3
+14          	INC	D
+14          	INC	D
+CB 58       	BIT	3,B		;ausgabe auf Drucker ?
+CC 00 00    	CALL	Z,m4fe5		;wenn nein, Test ob 'A' und evtl Kopfzeile ausgeben
+C3 00 00    m4fb8	JP	m4e17		;nächsten Eintrag bearbeiten
+            
+CD 00 00    m4fbb	CALL	m4467		;Anzeigen
+21 00 00    	LD	HL,m5147	;Text 'DISK in 000 ?'
+CD 00 00    	CALL	m4467		;Anzeigen
+CD 00 00    m4fc4	CALL	m0049		;Auf Eingabe warten
+3D          	DEC	A		;'BREAK' ?
+CA 00 00    	JP	Z,m402d		;ja, zurück ins DOS
+FE 00       	CP	0ch		;<ENTER> ?
+20 00       	JR	NZ,m4fc4	;nein, weiter warten
+C9          	RET
+            
+CD 00 00    m4fd0	CALL	m50ae		;Blank u. CR anzeigen
+F1          	POP	AF
+FE 04       	CP	04h
+DC 9B 50    	CALL	C,m509b		;Screen full ?
+3A D1 50    m4fd9	LD	A,(m50d1)	;Ausgabeadresse
+FE 3B       	CP	3bh		;ist es Drucker
+CC AE 50    	CALL	Z,m50ae		;Blank u. CR anzeigen wenn Drucker
+AF          	XOR	A
+C3 00 00    	JP	m4d4f		;zurück
+            
+CB 40       m4fe5	BIT	0,B		;Flag 'A' ?
+C8          	RET	Z		;zurück wenn nicht
+E5          	PUSH	HL
+C5          	PUSH	BC
+15          	DEC	D
+06 00       	LD	B,0fh		;Zähler
+CD BA 50    	CALL	m50ba		;B * Blank anzeigen
+21 00 00    	LD	HL,m51bd	;Text 'Datum:    EOF   Log  ...'
+CD B7 50    	CALL	m50b7		;String anzeigen
+C1          	POP	BC
+E1          	POP	HL
+C9          	RET
+            
+79          m4ff9	LD	A,C		;Drive #
+CD 00 00    	CALL	m47ec		;Motor on und Test 'Disk in ?'
+C0          	RET	NZ		;not ready
+C5          	PUSH	BC
+06 00       	LD	B,00h
+21 00 00    	LD	HL,m515f	;1. Stelle vor Drive # im Ausgabetext
+CD 00 00    	CALL	m50e8		;Drive # eintragen
+3A 00 00    	LD	A,(m430d)	;Anzahl Tracks (SP)
+4F          	LD	C,A		;nach C
+06 00       	LD	B,00h
+21 00 00    	LD	HL,m5164	;' 000 Sp.'
+CD 00 00    	CALL	m50e8		;Spuren eintragen
+AF          	XOR	A
+CD 00 00    	CALL	m490a		;Sector (A) des Directorys lesen (hier 0)
+20 00       	JR	NZ,m5086	;wenn Fehler
+01 00 00    	LD	BC,m0000
+FD 5E 00    m501c	LD	E,(IY+8fh)	;Grans pro Lump (akt. Drive) (Einh./Block)
+7E          	LD	A,(HL)
+23          	INC	HL
+0F          m5021	RRCA
+38 FE       	JR	C,m5025
+03          	INC	BC
+1D          m5025	DEC	E
+20 FE       	JR	NZ,m5021
+7D          	LD	A,L
+FD BE FE    	CP	(IY+8bh)	;Blockanzahl der Diskette
+38 FE       	JR	C,m501c
+C5          	PUSH	BC		;(Freie Einheiten)
+E1          	POP	HL		;nach HL
+3A 00 00    	LD	A,(m4cb3)	;SEC pro Einheit
+CD 00 00    	CALL	m4c94		;HL * A (HL = freie Sektkorken)
+7C          	LD	A,H
+45          	LD	B,L
+0E 00       	LD	C,00h		;* 256 (ABC = Freie Byte)
+21 74 51    	LD	HL,m5174		; 00000000 Bytes '
+11 00 00    	LD	DE,m512f
+CD 00 00    	CALL	m50f1
+21 00 00    	LD	HL,m42d0	;Diskname im DIR-Sektor
+11 00 00    	LD	DE,m5185	;'DISKNAME'
+01 00 00    	LD	BC,m0008	;Länge
+ED B0       	LDIR			;Namen übertragen
+11 00 00    	LD	DE,m518f	;'TT.MM.JJ'
+0E 00       	LD	C,08h		;Länge
+ED B0       	LDIR			;-Datum übertragen
+3E 00       	LD	A,01h		;DIR-Sektor 1
+CD 00 00    	CALL	m490a		;Sector (A) des Directorys lesen
+20 00       	JR	NZ,m5086	;raus mit Fehler
+3A 00 00    m505c	LD	A,(m421f)	;Länge des DIR-Feldes-0A (Sektoren)
+C6 00       	ADD	A,08h		;Länge-2 (Sect. mit DIR-Einträgen)
+5F          	LD	E,A
+32 00 00    	LD	(m4f52),A	;letzter DIR-Sector, da patchen
+7E          m5065	LD	A,(HL)
+B7          	OR	A
+23          	INC	HL
+20 FE       	JR	NZ,m506b
+03          	INC	BC
+1D          m506b	DEC	E
+20 FE       	JR	NZ,m5065
+7D          	LD	A,L
+C6 1F       	ADD	A,1fh
+E6 E0       	AND	0e0h
+6F          	LD	L,A
+20 FE       	JR	NZ,m505c
+21 00 00    	LD	HL,m516c	;' 000 FED'
+CD E8 50    	CALL	m50e8
+21 00 00    	LD	HL,m515a	;'Drive:   '
+CD B7 50    	CALL	m50b7		;String anzeigen
+CD AE 50    	CALL	m50ae		;Blank u. CR anzeigen
+AF          	XOR	A
+C1          m5086	POP	BC
+C9          	RET
+            
+            ;Test ob Option 'P' angegeben und evtl. die Ausgabe umlegen
+7E          m5088	LD	A,(HL)		;Zeichen aus Befehlsstring
+FE 50       	CP	'P'		;ist es P ?
+23          	INC	HL		;nächstes Zeichen
+C0          	RET	NZ		;kein Drucker
+3E 3B       	LD	A,3bh		;Adreß-LSB Druckertreiber (003bh)
+32 00 00    	LD	(m50d1),A	;da patchen (in die Ausgaberoutine)
+3E 6A       	LD	A,6ah		;dto. 446ah
+32 B8 50    	LD	(m50b8),A	;patchen
+CB D8       	SET	3,B		;Flag für Drucker setzen
+7E          	LD	A,(HL)		;nächstes Zeichen des Befehlstrings
+C9          	RET
+            
+            ;Test ob Bildschirm voll ist
+FD CB FE 6E m509b	BIT	5,(IY+0e9h)	;ist Chaining aktiv ?
+C0          	RET	NZ		;zurück wenn Chaining aktiv
+3A D1 50    	LD	A,(m50d1)	;Flag für Ausgabe (Screen/Printer)
+FE 33       	CP	'3'		;ist es Screen ?
+C0          	RET	NZ		;nein, bei Drucker weitermachen
+            
+            ;************************************************************************
+3E 3F       	LD	A,'?'
+CD CE 50    	CALL	m50ce		;anzeigen
+            ;************************************************************************
+            
+CD 00 00    	CALL	m4fc4		;auf CR warten (Abbruch bei Break)
+            ;Blank und CR anzeigen
+3E 20       m50ae	LD	A,' '		;Blank => A
+CD CE 50    	CALL	m50ce		;anzeigen
+3E 0D       	LD	A,0dh		;CR => A
+18 17       	JR	m50ce		;auch anzeigen und weiter
+            
+            ;String auf Drucker oder Schirm ausgeben
+C3 00 00    m50b7	JP	m4467		;Anzeigen und zurück
+            m50b8	EQU	$-2		;Drucker oder Schirm, je nach dem
+            
+            ;B * Blank anzeigen
+3E 20       m50ba	LD	A,' '		;Blank => A
+CD CE 50    	CALL	m50ce		;anzeigen
+10 F9       	DJNZ	m50ba		;B *
+C9          	RET
+            
+            ;B- Bytes ab (HL) anzeigen (Blanks nicht ausgeben)
+7E          m50c2	LD	A,(HL)		;Zeichen nach A
+23          	INC	HL		;Zeiger auf nächstes Zeichen
+CD CA 50    m50c4   CALL	m50ca		;Accu anzeigen, Blanks nicht
+10 F9       	DJNZ	m50c2		;B *
+C9          	RET
+            
+            ;Accu anzeigen wenn nicht Blank
+FE 20       m50ca	CP	' '		;ist es Blank ?
+C8          	RET	Z		;ja, dann zurück
+0D          	DEC	C		;Zeichenzähler - 1
+            ;Accu anzeigen
+D5          m50ce	PUSH	DE
+F5          	PUSH	AF
+CD 00 00    	CALL	m0033		;auf Screen oder Drucker ausgeben
+            m50d1	EQU	$-2		;Drucker oder Screen
+F1          	POP	AF
+D1          	POP	DE
+C9          	RET
+            
+06 00       m50d6	LD	B,18h
+AF          	XOR	A
+CB 23       m50d9	SLA	E
+ED 6A       	ADC	HL,HL
+17          	RLA
+38 FE       	JR	C,m50e3
+B9          	CP	C
+38 FE       	JR	C,m50e5
+91          m50e3	SUB	C
+1C          	INC	E
+10 00       m50e5	DJNZ	m50d9
+C9          	RET
+            
+11 00 00    m50e8	LD	DE,m513e
+18 FE       	JR	m50f0
+            
+11 00 00    	LD	DE,m513b
+AF          m50f0	XOR	A
+D5          m50f1	PUSH	DE
+E5          	PUSH	HL
+C5          	PUSH	BC
+EB          	EX	DE,HL		;HL = Adresse der Daten
+5E          	LD	E,(HL)		;DE = Datenwert
+23          	INC	HL
+56          	LD	D,(HL)
+23          	INC	HL
+4E          	LD	C,(HL)
+06 2F       	LD	B,'/'
+E1          	POP	HL
+04          m50fd	INC	B
+19          	ADD	HL,DE
+89          	ADC	A,C
+38 FE       	JR	C,m50fd
+B7          	OR	A
+ED 52       	SBC	HL,DE
+99          	SBC	A,C
+E3          	EX	(SP),HL
+F5          	PUSH	AF
+7E          	LD	A,(HL)
+D6 30       	SUB	'0'
+FE 0A       	CP	0ah
+23          	INC	HL
+70          	LD	(HL),B
+38 FE       	JR	C,m5118
+78          	LD	A,B
+FE 30       	CP	'0'
+20 FE       	JR	NZ,m5118
+36 20       	LD	(HL),' '
+7B          m5118	LD	A,E
+FE 00       	CP	0f6h		;Letzter Datensatz erreicht ?
+28 00       	JR	Z,m5125		;falls ja
+F1          	POP	AF
+C1          	POP	BC
+D1          	POP	DE		;Adresse der Daten
+13          	INC	DE
+13          	INC	DE
+13          	INC	DE		;auf nächstes Datentripple
+18 00       	JR	m50f1		;weitermachen
+            
+D1          m5125	POP	DE
+C1          	POP	BC
+D1          	POP	DE
+23          	INC	HL
+79          	LD	A,C		;akt. Drive #
+C6 00       	ADD	A,'0'		;=> ASCII
+77          	LD	(HL),A		;in den Text
+23          	INC	HL		;auf nächste Textstelle
+C9          	RET
+            
+80          m512f	ADD	A,B
+69          	LD	L,C
+67          	LD	H,A
+C0          	RET	NZ
+BD          	CP	L
+F0          	RET	P
+60          	LD	H,B
+79          	LD	A,C
+FE F0       	CP	0f0h
+            m5138	EQU	$-1
+D8          m5139	RET	C
+FF          	RST	38H
+18 00       m513b	JR	m5139
+FF          	RST	38H
+            
+9C          m513e	SBC	A,H
+FF          	RST	38H
+FF          	RST	38H
+F6 FF       	OR	0ffh
+FF          	RST	38H
+20          m5144	DEFM	'   DISK IN  000?',0dh
+            m514f	EQU	$-6
+44          m5155	DEFM	'DOS-',03h
+            m5159 EQU	$-1
+44          m515a	DEFM	'Drive:000 '		;Drive #
+20          m5164	DEFM	' 000 Sp.'		;Spuranzahl
+20          m516c	DEFM	' 000 FED'		;Freie Einträge
+20          m5174	DEFM	' 00000000 Bytes '	;Freier Platz
+28          m5184	DEFB	'('
+44          m5185	DEFM	'DISKNAME) '		;Diskettenname
+54          m518f	DEFM	'TT.MM.JJ',03h		;Datum und Ende
+            
+            
+20          m5198	DEFM	' 00000/000'		;EOF
+20          m51a2	DEFM	' 000'			;Log. Recordlänge
+20          m51a6	DEFM	' 00000000'		;Records
+20          m51af	DEFM	' 000 '			;Erweiterungen
+53          m51b4	DEFM	'SIEFBMPB',03h		;Ende
+            m51b8	EQU	$-5
+            m51b9	EQU     $-4
+            m51ba	EQU	$-3
+            
+            
+44          m51bd	DEFM	'Datum:      EOF: log Records: '
+45          	DEFM	'E.: SBIEFBMBP',0dh
+            mffff	EQU	0ffffh
+            	END	4d00h

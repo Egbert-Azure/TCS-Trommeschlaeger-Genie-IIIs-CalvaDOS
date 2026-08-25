@@ -1,0 +1,176 @@
+            ;MATH/SRC  Multiplikation und Divison
+            ;Zahlenformat-Umwandlungen
+            ;
+            ;MULTHL multipliziert HL * A
+            ;Ergebnis in AHL
+            ;
+C5          multhl	PUSH	BC
+D5          	PUSH	DE
+EB          	EX	DE,HL
+0E 00       	LD	C,80H
+21 00 00    	LD	HL,0
+0F          cc0	RRCA
+38 00       	JR	C,cc1
+19          	ADD	HL,DE
+CB 3C       cc1	SRL	H
+CB 1D       	RR	L
+CB 19       	RR	C
+30 00       	JR	NC,cc0
+7C          	LD	A,H
+65          	LD	H,L
+69          	LD	L,C
+D1          	POP	DE
+C1          	POP	BC
+C9          	RET
+            ;
+            ;DIVA dividiert HL / A
+            ;Ergebnis: HL =INT(HL/A)
+            ;	   A=rest, wenn Z=0
+            ;
+4F          diva	LD	C,A
+06 00       	LD	B,10
+AF          	XOR	A
+29          dd2	ADD	HL,HL
+17          	RLA
+38 00       	JR	C,dd0
+B9          	CP	C
+38 00       	JR	C,dd1
+91          dd0	SUB	C
+2C          	INC	L
+10 00       dd1	DJNZ	dd2
+B7          	OR	A
+C9          	RET
+            ;
+            ;Binärbyte in ASCII-Ziffernstring wandeln
+            ;und ab (HL) ablegen
+            ;Byte wird in A übernommen
+            ;HL zeigt anschließend hinter den String
+D5          byasc	PUSH	DE
+E5          	PUSH	HL
+E5          	PUSH	HL
+6F          	LD	L,A
+26 00       	LD	H,0
+3E 00       	LD	A,100
+CD 00 00    	CALL	diva	;Hunderter in L
+57          	LD	D,A	;Divisionsrest
+5D          	LD	E,L
+7D          	LD	A,L
+B7          	OR	A	;Hunderter = 0 ?
+28 00       	JR	Z,nohund
+F6 00       	OR	30h	;ASCII-Zeichen
+E1          	POP	HL	;Ablageadresse
+77          	LD	(HL),A
+23          	INC	HL
+E5          	PUSH	HL
+            ;
+6A          nohund	LD	L,D	;Divisionsrest
+26 00       	LD	H,0
+3E 00       	LD	A,10
+CD 00 00    	CALL	diva	;Zehner in L
+57          	LD	D,A	;Rest ist Einer
+7D          	LD	A,L	;Zehner
+B7          	OR	A	;Zehner = 0 ?
+20 00       	JR	NZ,zehnr
+            ;
+E1          	POP	HL
+7D          	LD	A,L
+E3          	EX	(SP),HL
+BD          	CP	L
+E3          	EX	(SP),HL
+E5          	PUSH	HL
+28 00       	JR	Z,nozehn
+            ;
+3E 00       	LD	A,0	;Zehner
+E1          zehnr	POP	HL
+F6 00       	OR	30h
+77          	LD	(HL),A
+23          	INC	HL
+E5          	PUSH	HL
+E1          nozehn	POP	HL
+7A          	LD	A,D
+F6 00       	OR	30h
+77          	LD	(HL),A
+23          	INC	HL
+D1          	POP	DE
+C9          	RET
+            ;
+            ;Umwandlung eines Binär-Bytes in ASCII-String
+21 00 00    bydez	LD	HL,strbuf
+E5          bydez1	PUSH	HL
+6F          	LD	L,A
+AF          	XOR	A
+67          	 	LD	H,A		;Wert ist in HL
+3E 00       	LD	A,100		;Hunderter-Stelle
+CD 00 00    	CALL	diva		;ermitteln
+4F          	LD	C,A		;Divisionsrest in C
+7D          	LD	A,L		;falls '0', weglassen
+B7          	OR	A
+28 00       	JR	Z,nich		;wenn '0'
+F6 00       	OR	30h		;to ASCII
+E1          	POP	HL		;Ablage-Pointer
+77          	LD	(HL),A
+23          	INC	HL
+E5          	PUSH	HL
+69          nich	LD	L,C		;Rest durch 10 teilen
+3E 00       	LD	A,10
+CD 00 00    	CALL	diva
+4F          	LD	C,A		;Rest retten
+7D          	LD	A,L		;Zehnerstelle
+B7          	OR	A		;Wenn die auch 0 ist
+28 00       	JR	Z,nich1
+F6 00       	OR	30h		;to ASCII
+E1          	POP	HL		;Ablage-Pointer
+77          	LD	(HL),A
+23          	INC	HL
+E5          	PUSH	HL
+79          nich1	LD	A,C		;Einerstelle
+F6 00       	OR	30h		;to ASCII
+E1          	POP	HL
+77          	LD	(HL),A
+23          	INC	HL
+AF          	XOR	A		;00h dahinter
+77          	LD	(HL),A
+C9          	RET
+            ;
+            ;2 Digit-BCD-Wert im Akku binär wandeln
+D5          bybin	PUSH	DE
+57          	LD	D,A		;retten
+E6 0F       	AND	0fh
+5F          	LD	E,A		;low Nibble in E
+7A          	LD	A,D
+E6 F0       	AND	0f0h		;high Nibble :16 *10
+CB 3F       	SRL	A		;8/16 des high Nibbles
+57          	LD	D,A
+CB 3F       	SRL     SCF
+CB 3F       	SRL     SCF		;2/16 des high nibbles
+82          	ADD	A,D		;10/16
+83          	ADD	A,E             ;low Nibble addieren
+D1          	POP	DE
+C9          	RET
+            ;
+            ;16-Bit-Hexzahl dezimal in ASCII-String wandeln
+            ;und an Bildschirm ausgeben
+06 00       bindez	LD	B,5		;max 5 Zeichen
+AF          	XOR	A		;00H auf den Stack
+F5          	PUSH	AF
+C5          teile	PUSH	BC		;Zähler retten
+3E 00       	LD	A,10		;durch 10 teilen
+CD 00 00    	CALL	diva		;HL = INT(HL/A)
+F6 00       	OR	30		;Rest in A =>ASCII
+C1          	POP	BC
+F5          	PUSH	AF		;weg damit
+10 00       	DJNZ	teile		;nächste Stelle
+            ;Zeichen vom Stack in den Ausgabepuffer
+            ;führende Nullen unterdrücken
+21 00 00    	LD	HL,strbuf
+F1          nxblk	POP	AF		;Zeichen holen
+FE 00       	CP	'0'		;führende Null ?
+28 00       	JR	Z,nxblk
+77          nxasc	LD	(HL),A		;Zeichen in Buffer
+23          	INC	HL
+F1          	POP	AF
+B7          	OR	A		;String zuende ?
+20 00       	JR	NZ,nxasc	;wenn noch nicht
+77          	LD	(HL),A		;Terminator dahinter
+C9          	RET
+            ;

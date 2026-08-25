@@ -1,0 +1,270 @@
+            ;	Befehlszeilen Editor MS-DOS like
+            ;	nach Ulrich Heidenreich
+            ;	Club-80 Info nr.20 august 87
+            ;	ursprünglich ein SYS-File
+            ;	Hier im Utility-Bereich ab 5200h
+            	ORG	5200h
+            outext	EQU	4467h
+            cmdbuf	EQU	4318h
+            twocha	EQU	43a7h
+7E          delete	LD	A,(HL)
+FE 0D       	CP	0dh
+C8          	RET	Z
+            
+54          restor	LD	D,H
+5D          	LD	E,L
+13          	INC	DE
+1A          delop	LD	A,(DE)
+1B          	DEC	DE
+12          	LD	(DE),A
+13          	INC	DE
+13          	INC	DE
+FE 0D       	CP	0dh
+20 F7       	JR	NZ,delop
+CD 86 53    	CALL	dispt
+10 EB       	DJNZ	delete
+C9          	RET
+3E 3E       s22r	LD	A,3eh
+32 32 53    	LD	(hxflag),A
+2A A7 43    	LD	HL,(twocha)
+22 18 43    	LD	(cmdbuf),HL
+            
+21 18 43    again	LD	HL,cmdbuf
+11 C5 53    	LD	DE,edibuf
+D5          	PUSH	DE
+01 50 00    	LD	BC,80
+ED B0       	LDIR
+E1          	POP	HL
+            
+CD 67 44    redo	CALL	outext
+3E 0E       	LD	A,0eh
+CD A7 53    	CALL	outcha
+3E 1B       	LD	A,27
+CD A7 53    	CALL	outcha
+            
+11 3B 52    edit	LD	DE,edit
+D5          	PUSH	DE
+06 00       	LD	B,0
+CD AF 53    inloop	CALL	inchar
+D6 30       	SUB	'0'
+38 0E       	JR	C,edcmd
+FE 0A       	CP	10
+30 0A       	JR	NC,edcmd
+4F          	LD	C,A
+78          	LD	A,B
+07          	RLCA
+07          	RLCA
+80          	ADD	A,B
+07          	RLCA
+81          	ADD	A,C
+47          	LD	B,A
+18 EB       	JR	inloop
+            
+05          edcmd	DEC	B
+04          	INC	B
+20 01       	JR	NZ,rgz
+04          	INC	B
+C6 30       rgz	ADD	A,'0'
+FE 0D       	CP	0dh
+28 53       	JR	Z,enter
+FE 08       	CP	08h
+28 6E       	JR	Z,bsp
+FE 20       	CP	20h
+28 5F       	JR	Z,space
+FE 09       	CP	09h
+28 5B       	JR	Z,space
+FE 00       	CP	24
+CA 00 00    	JP	Z,list
+FE 00       	CP	25
+CA 00 00    	JP	Z,xtend
+CB AF       	RES	5,A
+FE 44       	CP	'D'
+28 8D       	JR	Z,delete
+FE 52       	CP	'R'
+28 8D       	JR	Z,restor
+FE 51       	CP	'Q'
+28 66       	JR	Z,quit
+FE 4C       	CP	'L'
+28 26       	JR	Z,list
+FE 53       	CP	'S'
+28 62       	JR	Z,search
+FE 49       	CP	'I'
+CA 11 53    	JP	Z,insert
+FE 43       	CP	'C'
+CA 74 53    	JP	Z,change
+FE 45       	CP	'E'
+28 26       	JR	Z,exit
+FE 58       	CP	'X'
+28 63       	JR	Z,xtend
+FE 4B       	CP	'K'
+CA 5F 53    	JP	Z,kill
+FE 48       	CP	'H'
+28 65       	JR	Z,hack
+FE 41       	CP	'A'
+C0          	RET	NZ
+D1          	POP	DE
+C3 21 52    	JP	again
+            
+D1          list	POP	DE
+CD 67 44    	CALL	outext
+3E 0D       	LD	A,0dh
+CD A7 53    	CALL	outcha
+21 C5 53    	LD	HL,edibuf
+C3 2E 52    	JP	redo
+CD 67 44    enter	CALL	outext
+21 C5 53    exit	LD	HL,edibuf
+11 18 43    	LD	DE,cmdbuf
+D5          	PUSH	DE
+01 50 00    	LD	BC,80
+ED B0       	LDIR
+E1          	POP	HL
+D1          	POP	DE
+C3 00 00    	JP	4405h
+7E          space	LD	A,(HL)
+FE 0D       	CP	0dh
+C8          	RET	Z
+23          	INC	HL
+CD A7 53    	CALL	outcha
+10 F6       	DJNZ	space
+C9          	RET
+11 C5 53    bsp	LD	DE,edibuf
+DF          bsplop	RST	18h
+C8          	RET	Z
+2B          	DEC	HL
+3E 18       	LD	A,24
+CD A7 53    	CALL	outcha
+10 F6       	DJNZ	bsplop
+C9          	RET
+D1          quit	POP	DE
+C3 00 44    	JP	4400h
+CD AF 53    search	CALL	inchar
+5F          	LD	E,A
+7E          sloop	LD	A,(HL)
+FE 0D       	CP	0dh
+C8          	RET	Z
+CD A7 53    	CALL	outcha
+23          	INC	HL
+7E          	LD	A,(HL)
+BB          	CP	E
+20 F4       	JR	NZ,sloop
+10 F2       	DJNZ	sloop
+C9          	RET
+7E          xtend	LD	A,(HL)
+FE 0D       	CP	0dh
+28 0D       	JR	Z,bspdel
+CD A7 53    	CALL	outcha
+23          	INC	HL
+18 F5       	JR	xtend
+36 0D       hack	LD	(HL),0dh
+3E 1E       	LD	A,30
+CD A7 53    	CALL	outcha
+3E 36       bspdel	LD	A,36h
+32 32 53    	LD	(hxflag),A
+18 05       	JR	bcont
+3E 3E       insert	LD	A,3eh
+32 32 53    	LD	(hxflag),A
+CD AF 53    bcont	CALL	inchar
+FE 0D       	CP	0dh
+28 97       	JR	Z,enter
+FE 1B       	CP	1bh
+20 06       	JR	NZ,noesc
+3E 3E       	LD	A,3eh
+32 32 53    	LD	(hxflag),A
+C9          	RET
+FE 08       noesc	CP	8
+20 19       	JR	NZ,nobsp
+11 C5 53    	LD	DE,edibuf
+DF          	RST	18h
+28 E5       	JR	Z,bcont
+2B          	DEC	HL
+3E 0D       hxflag	LD	A,0dh
+3A 32 53    	LD	A,(hxflag)
+FE 36       	CP	36h
+3E 08       	LD	A,8
+28 02       	JR	Z,delbsp
+3E 18       	LD	A,24
+CD A7 53    delbsp	CALL	outcha
+18 D2       	JR	bcont
+FE 20       nobsp	CP	20h
+38 CE       	JR	C,bcont
+47          	LD	B,A
+11 14 54    	LD	DE,edibuf+79
+1B          inslop	DEC	DE
+1A          	LD	A,(DE)
+13          	INC	DE
+12          	LD	(DE),A
+1B          	DEC	DE
+DF          	RST	18h
+20 F8       	JR	NZ,inslop
+70          	LD	(HL),B
+78          	LD	A,B
+CD A7 53    	CALL	outcha
+23          	INC	HL
+CD 86 53    	        CALL	dispt
+18 B7       	JR	bcont
+CD AF 53    kill	CALL	inchar
+4F          	LD	C,A
+C5          kiloop	PUSH	BC
+06 01       	LD	B,1
+CD 00 52    	CALL	delete
+C1          	POP	BC
+7E          	LD	A,(HL)
+FE 0D       	CP	0dh
+C8          	RET	Z
+B9          	CP	C
+20 F2       	JR	NZ,kiloop
+10 F0       	DJNZ	kiloop
+C9          	RET
+7E          change	LD	A,(HL)
+FE 0D       	CP	0dh
+C8          	RET	Z
+CD AF 53    	CALL	inchar
+FE 20       	CP	' '
+D8          	RET	C
+77          	LD	(HL),A
+23          	INC	HL
+CD A7 53    	CALL	outcha
+10 EF       	DJNZ	change
+C9          	RET
+E5          dispt	PUSH	HL
+0E 00       	LD	C,0
+7E          l1	LD	A,(HL)
+FE 0D       	CP	0dh
+28 07       	JR	Z,e1
+CD A7 53    	CALL	outcha
+0C          	INC	C
+23          	INC	HL
+18 F4       	JR	l1
+3E 1E       e1	LD	A,30
+CD A7 53    	CALL	outcha
+E1          	POP	HL
+0C          	INC	C
+0D          	DEC	C
+C8          	RET	Z
+3E 18       	LD	A,24
+CD A7 53    e2	CALL	outcha
+0D          	DEC	C
+20 FA       	JR	NZ,e2
+C9          	RET
+D9          outcha	EXX
+F5          	PUSH	AF
+CD 33 00    	CALL	033h
+F1          	POP	AF
+D9          	EXX
+C9          	RET
+            
+D9          inchar EXX
+CD 49 00    	CALL	49h
+D9          	EXX
+C9          	RET
+21 C5 53    slinks	LD	HL,edibuf
+3E 18       	LD	A,24
+CD A7 53    	CALL	outcha
+C9          	RET
+7E          srechts	LD	A,(HL)
+FE 0D       	CP	0dh
+C8          	RET	Z
+23          	INC	HL
+18 F9       	JR	srechts
+            edibuf	DEFS	80
+            	END	s22r

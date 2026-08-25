@@ -1,0 +1,100 @@
+            ; B L I S T
+            ;
+            ; listet Basicprogramme vom Dos aus
+            ; und wandelt die Tokens in Klartext um
+            ;
+            ; Listing aus Club-Info (Bremerhaven) Nr. 10/85
+            ;
+            ;
+            	ORG	5200h
+11 BD 52    open	LD	DE,dcb
+7E          op1	LD	A,(HL)
+12          	LD {8D},SCF
+13          	INC	DE
+23          	INC	HL
+FE 0D       	CP	0dh
+20 F8       	JR	NZ,op1
+1B          	DEC	DE
+3E 03       	LD	A,03h
+12          	LD	(DE),A
+11 BD 52    	LD	DE,dcb
+21 D2 52    	LD	HL,buffer
+CD 00 00    	CALL	4424h
+C2 00 00    	JP	NZ,4409h
+21 D0 54    	LD	HL,txtbuf
+22 A7 40    	LD	(40a7h),HL
+C9          	RET
+11 BD 52    read	LD	DE,dcb
+CD 13 00    	CALL	0013h
+C2 09 44    	JP	NZ,4409h
+C9          	RET
+CD 9A 0A    znr	CALL	0a9ah
+AF          	XOR	A
+CD 34 10    	CALL	1034h
+B6          	OR	(HL)
+CD D9 0F    	CALL	0fd9h
+E5          	PUSH	HL
+AF          	XOR	A
+23          loop1	INC	HL
+BE          	CP	(HL)
+20 FC       	JR	NZ,loop1
+36 20       	LD	(HL),' '
+23          	INC	HL
+36 03       	LD	(HL),03h
+E1          	POP	HL
+CD 67 44    	CALL	4467h
+C9          	RET
+CD 00 52    init	CALL	open
+CD 22 52    	CALL	read
+FE FF       	CP	0ffh
+20 4D       	JR	NZ,error
+CD 22 52    next	CALL	read
+47          	LD	B,A
+CD 22 52    	CALL	read
+B0          	OR	B
+28 49       	JR	Z,endrea
+CD 22 52    	CALL	read
+6F          	LD	L,A
+CD 22 52    	CALL	read
+67          	LD	H,A
+CD 2C 52    	CALL	znr
+21 D1 53    	LD	HL,buf
+CD 22 52    loopbf	CALL	read
+B7          	OR	A
+77          	LD	(HL),A
+28 03       	JR	Z,buffin
+23          	INC	HL
+18 F6       	JR	loopbf
+21 D1 53    buffin	LD	HL,buf
+CD 7E 2B    	CALL	2b7eh
+2A A7 40    	LD	HL,(40a7h)
+E5          	PUSH	HL
+AF          	XOR	A
+23          loop2	INC	HL
+BE          	CP	(HL)
+20 FC       	JR	NZ,loop2
+36 0D       	LD	(HL),0dh
+E1          	POP	HL
+CD 67 44    	CALL	4467h
+3A 40 38    	LD	A,(14400)
+FE 40       	CP	64
+CC 96 52    	CALL	Z,wait
+FE 08       	CP	8
+28 10       	JR	Z,endrea
+18 BB       	JR	next
+3A 40 38    wait	LD	A,(14400)
+FE 01       	CP	1
+20 F9       	JR	NZ,wait
+C9          	RET
+21 A8 52    error	LD	HL,text
+C3 67 44    	JP	4467h
+CD 28 44    endrea	CALL	4428h
+C9          	RET
+4B          text	DEFM	'Kein Basic-File !!'
+07 07       	DW	0707h
+0D          	DB	0dh
+            dcb	DEFS	21
+            buffer	DEFS	255
+            buf	DEFS	255
+            txtbuf	DEFS	255
+            	END	init

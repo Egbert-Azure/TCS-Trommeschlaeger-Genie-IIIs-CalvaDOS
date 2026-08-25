@@ -1,0 +1,34 @@
+            ;	SETDRIVE
+            ; setzt das gewünschte Laufwerk als Default-Laufwerk.
+            ;
+            ;
+            ;	Syntax :  SET <Lw#><ENTER>
+            ;
+            ;
+            ;
+            dosrdy	EQU	402dh
+            gibaus	EQU	4467h
+            dirlw	EQU	43a0h
+            openlw	EQU	43a1h
+            doserr	EQU	4409h
+            ;
+            	ORG	4320h		;im eingabepuffer ist Platz genug
+7E          start	LD	A,(HL)		; zahl holen
+D6 30       	SUB	'0'		; ascii-> binär
+38 18       	JR	C,noziff	; keine Ziffer
+FE 0A       	CP	10		; Ziffer ???
+30 14       	JR	NC,noziff	; nein !
+32 A0 43    	LD	(dirlw),A
+32 A1 43    	LD	(openlw),A	; neues 'Normal' Laufwerk setzen
+C6 30       	ADD	A,'0'		; binär -> ascii
+32 4C 43    	LD	(lwnum),A	; im Ausgabestring einsetzen
+21 43 43    	LD	HL,text
+CD 67 44    	CALL	gibaus
+C3 2D 40    	JP	dosrdy
+3E 20       noziff	LD	A,32
+B7          	OR	A
+C3 09 44    	JP	doserr
+4C          text	DEFM	'Laufwerk '
+30          lwnum	DEFM	'0'
+20          wei	DEFM	' aktiv.',0dh
+            	END	start

@@ -1,0 +1,75 @@
+            ;	ADDIEREN VON ZWEI HEXZAHLEN
+            ;
+            ;  mit Hilfe des DOS-Unterprogramms bei 3B68h
+            ;
+            ;    ADD/SRC	= >      H/CMD
+            ;
+            ;
+            ;   die dezimalausgabe ist von zeus abgekuckt und läuft
+            ;   über eine basic-unterprogramm
+            ;
+            ;
+            mmein	EQU	06abh
+            mmaus	EQU	06a0h
+            conver	EQU	3b68h
+            gibaus	EQU	4467h
+            dosrdy	EQU	402dh
+            doserr	EQU	4409h
+            hexde	EQU	4063h
+            ;
+            	ORG	4200h
+7E          start	LD	A,(HL)		; wenn zunächst ein '@' eingegeben wird
+FE 40       	CP	'@'		; dann soll ein weitere Zahl zu dem
+23          	INC	HL
+28 0D       	JR	Z,wei2		; vorhererrechneten addiert oder subtr.
+2B          	DEC	HL		; ist nötig den Zeiger zu verändern.
+CD A0 06    	CALL	mmaus
+CD 68 3B    	CALL	conver
+CD AB 06    	CALL	mmein		; das ergebnis ist jetzt in DE
+ED 53 40 43 	LD	(ergeb),DE	; abspeichern
+7E          wei2	LD	A,(HL)		; kommt jetzt ein '+' ??
+FE 0D       	CP	0dh		; enter heißt nur eine Zahl
+28 29       	JR	Z,einzah
+FE 2D       	CP	'-'		; soll subtrahiert werden ?
+20 0C       	JR	NZ,wei1		; falls nicht
+E5          	PUSH	HL		; befehlszeiger retten !!
+21 3B 42    	LD	HL,opera	; operationscodestelle
+36 ED       	LD	(HL),0edh	; opcode für SBC  HL,DE
+23          	INC	HL
+36 52       	LD	(HL),52h
+E1          	POP	HL		; befehlszeiger zurück
+18 07       	JR	goon
+FE 2B       wei1	CP	'+'
+3E 2F       	LD	A,2fh
+C2 09 44    	JP	NZ,doserr	; sonst fehler
+CD A0 06    goon	CALL	mmaus
+23          	INC	HL
+CD 68 3B    	CALL	conver		; HL zeigt auf zweite zahl
+CD AB 06    	CALL	mmein
+2A 40 43    	LD	HL,(ergeb)	; HL = erste Zahl
+19          opera	ADD	HL,DE		; addition
+00          	NOP			; weil SBC ein zweibytebefehl ist
+22 40 43    	LD	(ergeb),HL	; und speichern
+2A 40 43    einzah	LD	HL,(ergeb)
+CD 66 42    	CALL	dezhl
+21 5F 42    	LD	HL,hexbuf
+ED 5B 40 43 	LD	DE,(ergeb)
+CD 63 40    	CALL	hexde
+21 59 42    	LD	HL,hexbuf1
+CD 67 44    	CALL	gibaus
+C3 2D 40    	JP	dosrdy
+00          hexbuf1	DEFM	'd : '
+66          hexbuf	DEFM	'ffffh ',0dh
+            ergeb	EQU	4340h
+            ;
+            ;	HL als Integer auf den Bildschirm
+            ;
+22 21 41    dezhl	LD	(4121h),HL	;Integer-X-Register
+21 30 41    	LD	HL,4130h	;Buffer
+CD 2F 13    	CALL	132fh		;Integer auf Screen
+36 03       	LD	(HL),03h	;statt 0: enter ans Ende des Ziffernstr.
+21 30 41    	LD	HL,4130h
+CD 67 44    	CALL	gibaus
+C9          	RET
+            	END	start
+            

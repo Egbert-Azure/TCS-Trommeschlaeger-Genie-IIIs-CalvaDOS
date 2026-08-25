@@ -1,0 +1,357 @@
+            ;	E R A S E
+            ;
+            ;Löschen von Files
+            ;mit angabe von wildcards
+            ;	? = beliebiger buchstabe
+            ;	* = nachfolgende zeichen bis '/' beliebig
+            ;
+            ;
+            ;  Syntax :=  ERASE FILENAME/EXT:lw#<ENTER>
+            ;
+            ;
+            ; Änderungen 18.02.92	- bei */* 'J' und 'j' erlauben
+            ;			- blanks bei der extension erlauben
+            ;			- FXDE's besser rausfiltern
+            ;
+            ;
+            outch	EQU	0033h
+            getkey	EQU	0049h
+            dosrdy	EQU	402dh
+            doscal	EQU	4419h
+            extrfs	EQU	441ch
+            sendms	EQU	4467h
+            grosbu	EQU	45b5h
+            dirr	EQU	490ah
+            dirw	EQU	491fh
+            tesdsk	EQU	445eh
+            debug	EQU	440dh
+            doserr	EQU	4409h
+            ;
+            ;
+            	ORG	8000h
+78          dri1	DEFM	'x'	;source-lw#
+78          secanz	DEFM	'x'	; anzahl der zu lesenden
+            			; dirsectoren mit FDE's
+78          buf1	DEFM	'xx'	; zeiger auf buffer
+78          buf2	DEFM	'xx'	; zeigt auf anfang Bufferfeld
+00          filzae	DEFM	00h	; Anzahl der zu kopierenden Files
+46          fname	DEFM	'FILENAME';ebenso vom Progr. eingesetzt
+45          exten	DEFM	'EXT'
+0D          ende	DEFM      0DH     ;in den zurückliegenden 11 bytes
+            			;wird der Vergleichsfilespec
+            			;eingeschrieben um verglichen
+            			;zu werden
+53          schlech	DEFM	'Syntax := ERASE FILENAME/EXT'
+3A          	DEFM	':<lw#>ENTER'
+0D          	DEFM	0dh     ; Bei falscher Eingabe
+06 09       start	LD	B,09h	; max. 8Zeichen für Filename
+11 07 80    	LD	DE,fname; Zeiger auf 		"
+7E          loop1	LD	A,(HL)	; zeichen holen
+CD B5 45    	CALL	grosbu	; a->A, soweit möglich
+FE 3F       	CP	'?'	; wenn ja einfach eintragen
+28 08       	JR	Z,wei1
+FE 41       	CP	'A'
+38 0B       	JR	C,kzeich; wenn Carry gesetzt, ist
+            			;das Zeichen in der
+            			;ASCII-Tabelle kleiner als 'A'
+FE 5B       	CP	'Ä'
+30 07       	JR	NC,kzeich; bzw. es ist oberhalb von 'Z'
+12          wei1	LD	(DE),A	; buchstaben eintragen
+13          	INC	DE
+23          	INC	HL	; zeiger einen weiter
+10 EB       	DJNZ	loop1	; bis 8 Zeichen
+18 61       	JR	error	; mehr als 8 !!
+FE 3A       kzeich	CP	':'	; laufwerkstrennzeichen?
+28 5D       	JR	Z,error	; enter ohne ext ist unzulässig
+FE 2F       	CP	'/'	; einziges zulässiges zeichen
+28 06       	JR	Z,slash	; weiter im text
+FE 2A       	CP	'*'	; jetzt wirds interessant
+28 3D       	JR	Z,stern	; mal sehen
+18 53       	JR	error	; anderes zeichen !!
+78          slash	LD	A,B	; wegen DJNZ
+FE 00       	CP	0h	; 8tes Zeichen ?
+C4 99 80    	CALL	NZ,nulauf; ausnullen mit spaces
+11 0F 80    	LD	DE,exten ; zeiger auf extensionstring
+06 04       ext	LD	B,04h	; höchstens drei Buchstaben !
+23          loop2	INC	HL	; eingangs zähler ein weiter
+7E          	LD	A,(HL)
+CD B5 45    	CALL	grosbu	; selbe routine wie oben
+FE 3F       	CP	'?'	;einfach weiter
+28 08       	JR	Z,wei2
+FE 00       	CP	' '	; blank ??
+28 00       	JR	Z,wei2	; ist schon o.K.
+FE 41       	CP	'A'
+38 0E       	JR	C,keexze; wenn enter, dann o.k.
+FE 5B       	CP	'Ä'
+30 0A       	JR	NC,keexze; dito
+12          wei2	LD	(DE),A	; buchstabe eintragen
+13          	INC	DE
+10 EB       	DJNZ	loop2	; bis 3 Zeichen
+FE 3A       	CP	':'	; 13. Zeichen LW-Doppelpunkt ?
+20 2F       	JR	NZ,error; wenn nicht !!!!!!!!!!!
+18 3F       	JR	kopie	; soweit in ordnung
+FE 2A       keexze	CP	'*'	; mit ?? aufüllen
+28 19       	JR	Z,stern1
+FE 3A       	CP	':'
+C4 B8 80    	CALL	NZ,error; jetzt folgt die LW#
+CD 99 80    	CALL	nulauf
+18 31       	JR	kopie
+3E 20       nulauf	LD	A,' '	; space
+12          fill	LD	(DE),A	; in fname eintragen
+13          	INC	DE
+10 FC       	DJNZ	fill
+C9          	RET
+3E 3F       stern	LD	A,'?'	; fuellbyte '?'
+CD 9B 80    	CALL	fill
+23          	INC	HL	; müßte auf '/' zeigen
+18 BD       	JR	slash
+3E 3F       stern1	LD	A,'?'	; füllbyte
+CD 9B 80    	CALL	fill	; ausfüllen,
+23          	INC	HL	; soll auf ':' zeigen
+11 12 80    	LD	DE,ende	; aufs ende von fname
+7E          	LD	A,(HL)	; zeichen holen
+FE 3A       	CP	':'	; wegen LW#
+20 02       	JR	NZ,error
+18 12       	JR	kopie	; soll funktionieren
+21 13 80    error	LD	HL,schlech
+CD 67 44    	CALL	sendms	; error meldung ausgeben
+C3 2D 40    	JP	dosrdy	; vorläufiger ausstieg
+D6 30       istzahl	SUB	'0'	; ascii korrektur
+38 F3       	JR	C,error
+FE 0A       	CP	10
+D8          	RET	C
+18 EE       	JR	error
+23          kopie	INC	HL	; jetzt wird erst mal auf
+            			; die Befehlssyntax
+7E          	LD	A,(HL)	; also :lw# getestet
+CD C1 80    	CALL	istzahl
+32 00 80    	LD	(dri1),A; als	source laufwerk
+23          	INC	HL	; auf komma
+7E          	LD	A,(HL)
+FE 0D       	CP	0dh
+20 E0       	JR	NZ,error; keine andere eingabe erlaubt
+            ; weiter im text, die Engabe ist richtig
+            ; und der vergleichs filename steht.
+            ; die laufwerksnummern sind auch da,
+            ; jetzt kann wirklich kopiert werden.
+            ; es werden ersteinmal die einträge in den
+            ; buffer geschrieben
+21 93 82    	LD	HL,buffer
+22 02 80    	LD	(buf1),HL
+22 04 80    	LD	(buf2),HL; anfang des Buffers
+            			 ; muss erhalten bleiben
+3A 00 80    reasec	LD	A,(dri1); sourcelaufwerk eintragen
+CD 5E 44    	CALL	tesdsk	; disketten zugriff testen
+C2 09 44    	JP	NZ,doserr
+CD A5 81    	CALL	ermi	; wieviele Dir-sectoren
+3A 01 80    	LD	A,(secanz)
+47          	LD	B,A
+3E 01       	LD	A,1	; erster dir-sector mit fde's
+3C          liesec	INC	A	; ist der Sector Nummer 2
+F5          	PUSH	AF	; retten !!
+C5          	PUSH	BC	; ebenso
+CD 0A 49    	CALL	dirr	; les einen sector in DOS-buffer
+FE 06       	CP	06h	;'Lesevers. markierter satz'
+28 03       	JR	Z,wei3	; dann ist alles in ordnung
+C3 09 44    	JP	doserr	; es ist ein fehler aufgetr.
+CD 0A 81    wei3	CALL	auswert	; gültige filespecs errech.
+C1          	POP	BC
+F1          	POP	AF	; accu vom stack als zähler
+10 EC       	DJNZ	liesec
+C3 B3 81    	JP	copy	; jetzt kann es richtig losgehen
+06 07       auswert	LD	B,7	; acht eintäge pro sector
+21 00 42    	LD	HL,4200h; erstes byte zeigt ob
+            			; ein Eintrag vorhanden ist
+11 05 42    	LD	DE,4205h; zeigt auf ersten FILENAMEEXT
+CD 23 81    	CALL	verglei	; prüft ob der eintrag den
+3E 20       loop3  LD	A,20h	; spezifikationen
+85          	ADD	A,L     ; entspricht. Ein FDE ist
+6F          	LD	L,A     ; 20h Byte lang.
+3E 20       	LD	A,20h
+83          	ADD	A,E
+5F          	LD	E,A
+CD 23 81    	CALL	verglei	; siehe 8 Zeilen weiter oben
+10 F3       	DJNZ	loop3
+C9          	RET		; acht einträge sind geprüft
+E5          verglei	PUSH	HL	; HL und DE werden gerettet
+D5          	PUSH	DE
+C5          	PUSH	BC	; muß auch gertettet werden
+06 0B       	LD	B,0bh	; 11 zeichen ist fname lang
+7E          	LD	A,(HL)	; sehen ob eintrag besteht
+FE 00       	CP	00h	; null, wenn nicht
+28 5A       	JR	Z,zurü	; erst noch pop de und hl
+CB 47       	BIT	7,A	; ist es ein Folgeeintrag ???
+20 00       	JR	NZ,zurü	; dann nicht eintragen !!
+CB 77       	BIT	6,A	; bit 6 ist '1' bei /SYS-Files
+20 52       	JR	NZ,zurü	; weil die nicht kopiert
+            			; werden dürfen (oder sollen)
+            			; vor allen Dingen nicht Boot und
+            			; Inhalt/SYS !!!!!!!!!!!!!!!!!!
+21 07 80    	LD	HL,fname; enthält spezifizierten fname
+1A          wei4 LD	A,(DE)	; zeichen im buffer
+BE          	CP	(HL)	; vergleiche (hl) mit (de)
+20 62       	JR	NZ,wei7 ; wenn nicht gleich, prüfen ob ?
+23          wei5 INC	HL
+13          	INC	DE	; zeiger auf nächstes zeichen
+10 F8       	DJNZ	wei4 	; 11 zeichen vergleichen
+00          eintr	NOP		; alle zeichen entsprechen den
+            			; spezifikationen, jetzt müssen
+            			; sie in einen Buffer
+            			; eingetragen werden, allerdings
+            			; in der Form FILENAME/EXT
+7B          	LD	A,E	; DE muß um 11 erniedriegt werden
+D6 0B       	SUB	11	; damit DE wieder auf Anfang des
+5F          	LD	E,A	; filespecs im FDE zeigt
+3A 06 80    	LD	A,(filzae); zähler für zu kop. Files
+3C          	INC	A	; + 1
+32 06 80    	LD	(filzae),A	; und speichern
+2A 02 80    	LD	HL,(buf1); buf1 ist der zeiger auf buffer
+CD 8B 81    	CALL	einK	; der DOS-Befehl 'Kill 'wird
+            			; vor die filespecs
+            			; eingetragen wegen doscall
+06 08       	LD	B,8	; acht zeichen höchstens
+1A          loop4 LD	A,(DE)	; erstes zeichen im buffer
+FE 20       	CP	' '	; ist es space ?
+28 02       	JR	Z,nein
+77          	LD	(HL),A	; zeichen eintragen
+23          	INC	HL
+13          nein	INC	DE	; zeiger weiter
+10 F6       	DJNZ	loop4 	; bis 8 zeichen
+3E 2F       	LD	A,'/'
+77          	LD	(HL),A	; Trennzeichen eintragen
+23          	INC	HL
+06 03       ext2	LD	B,3	; 3 extension zeichen
+1A          loop5 LD	A,(DE)	; erstes zeichen
+FE 20       	CP	' '
+28 02       	JR	Z,nein2
+77          	LD	(HL),A
+23          	INC	HL
+13          nein2	INC	DE
+10 F6       	DJNZ	loop5
+2B          	DEC	HL	; abfrage, ob gar keine extension
+7E          	LD	A,(HL)	; vorhanden war, dann muß der '/'
+FE 2F       	CP	'/'	; nämlich auch wieder weg
+28 01       	JR	Z,wei6
+23          	INC	HL
+3E 3A       wei6 LD	A,':'	; die zeichen ':lw#',0dh
+77          	LD	(HL),A	; werden hinter jeden filenamen
+23          	INC	HL	; eingetragen
+3A 00 80    	LD	A,(dri1)
+C6 30       	ADD	A,48	; ascii-ausgleich !! accu+48d
+77          	LD	(HL),A  ; dann wird aus 01h 49h,'A' !!
+23          	INC	HL
+3E 0D       	LD	A,0dh	; ENTER kennung für COPY befehl
+77          	LD	(HL),A	; eintragen
+23          	INC	HL	; zeigt auf das zeichen nach 0dh
+22 02 80    	LD	(buf1),HL	; buf1 aktualisieren
+            ; der filename wurde in den buffer eingetragen
+            ; es wird eine ebene zurück gesprungen, ob der
+            ; nexte eintrag gültig ist.
+C1          zur}	POP	BC	; die parameter werden
+D1          	POP	DE	; zurückgepopt
+E1          	POP	HL
+C9          	RET
+3E 4B       einK	LD	A,'K'
+77          	LD	(HL),A
+23          	INC	HL
+3E 49       	LD	A,'I'
+77          	LD	(HL),A
+23          	INC	HL
+3E 4C       	LD	A,'L'
+77          	LD	(HL),A
+23          	INC	HL
+77          	LD	(HL),A
+23          	INC	HL
+3E 20       	LD	A,' '
+77          	LD	(HL),A
+23          	INC	HL
+C9          	RET
+3E 3F       wei7 LD	A,'?'	; test ob der joker gestzt ist
+BE          	CP	(HL)	; vergleiche mit fname
+28 99       	JR	Z,wei5 	; wenns ein '?' war, ist der
+            			; Buchstabe o.K., ansonsten
+18 E2       	JR	zurü	; braucht fname nicht weiter
+            			; getestet werden, er entspricht
+            			; nicht
+            			; der geforderten Spezifikation
+3E 01       ermi	LD	A,1	; im ersten sektor des dir
+CD 0A 49    	CALL	dirr
+3A 1F 42    	LD	A,(421fh); an dem byte 1fh befindet sich
+C6 08       	ADD	A,08h	; die angabe , wieviele fde-
+            			; sectoren das directory
+            			; enthält.
+32 01 80    	LD	(secanz),A	; speichern
+C9          	RET
+            ;
+            ;	Jetzt folgt der eigentliche Löschvorgang
+            ;	es wird vorher getestet auf anzahl der Files = 	0
+            ;	und auf */*, also lösche alles
+            ;	außerdem wird nach dem letzten Eintrag als
+            ;	Endemarkierungein 'E' eingesetzzt
+            ;
+3E 45       copy	LD	A,'E'		; Endemarkierung
+77          	LD	(HL),A		; nach dem letzten Befehl
+3A 06 80    	LD	A,(filzae)	; keine Files  kopieren ?
+FE 00       	CP	00h
+28 34       	JR	Z,keifil	; Programm beenden
+            				; vorher Meldung ausgeben
+3A 1E 43    	LD	A,(431eh)	; erstes Zeichen nach
+            				; 'ERASE '
+FE 2A       	CP	'*'		; falls '*/* folgt
+20 36       	JR	NZ,goon
+3A 1F 43    	LD	A,(431fh)
+FE 2F       	CP	'/'
+20 2F       	JR	NZ,goon
+3A 20 43    	LD	A,(4320h)
+FE 2A       	CP	'*'
+20 28       	JR	NZ,goon
+21 34 82    	LD	HL,meld1
+CD 67 44    	CALL	sendms
+21 52 82    	LD	HL,meld2
+CD 67 44    	CALL	sendms
+CD 49 00    	CALL	getkey
+FE 6A       	CP	'j'
+28 00       	JR	Z,jaJA
+FE 00       	CP	'J'
+C2 2D 40    	JP	NZ,dosrdy
+3E 00       jaJA	LD	A,0dh	; noch ein ENTER ausgeben
+CD 33 00    	CALL	outch	; auf dem bildschirm ausgeben
+18 09       	JR	goon
+21 6A 82    keifil	LD	HL,meld3 ; kein File der Source-Disk
+            			 ; entspricht den
+CD 67 44    	CALL	sendms   ; geforderten Spezifikationen
+C3 2D 40    	JP	dosrdy
+2A 04 80    goon	LD	HL,(buf2)	; anfang des Buffers
+CD 67 44    wei8    CALL	sendms	; der Copy-Befehl wird auf dem
+            			; Bildschirm angezeigt.
+2A 04 80    	LD	HL,(buf2)
+CD 19 44    	CALL	doscal	; der Befehl wird ausgeführt
+C4 31 82    	CALL	NZ,keinfe; falls ein Fehler aufgetr. ist
+3A 40 38    	LD	A,(3840h)	; tastaturzeile mit BREAK
+CB 57       	BIT	2,A       ; Abbrechen mit <BREAK>-Taste
+28 05       	JR	Z,wei9
+3E 39       	LD	A,39h	; fehler 'Function Aborted'
+C3 09 44    	JP	doserr
+            ; Suchroutine um den nächsten Befehl zu finden
+2A 04 80    wei9    LD	HL,(buf2); anfang des letzten Befehls
+06 00       	LD	B,0
+0E 09       	LD	C,9; der nächste Befehl kommt frühestens
+09          	ADD	HL,BC		; nach 9 Zeichen.
+7E          loop6 LD	A,(HL)
+FE 0D       	CP	0dh	; kommt schon der nächste ?
+28 03       	JR	Z,wei10
+23          	INC	HL		; zeiger ein weiter
+18 F8       	JR	loop6 		; ohne ende .
+23          wei10	INC	HL		; ein hamwa noch
+7E          	LD	A,(HL)
+FE 4B       	CP	'K'		; normaler Befehl ?
+C2 2D 40    	JP	NZ,dosrdy  ;  wenn nicht, wars der letzte
+22 04 80    	LD	(buf2),HL  ; buf2 zeigt auf den nächsten
+18 CC       	JR	wei8	;Befehl und so weiter und so fort
+C3 09 44    keinfe	JP	doserr
+57          meld1	DEFM	'Wirklich alle Files löschen ?',0dh
+44          meld2	DEFM	'Dann jetzt <J> drücken ',03h
+4B          meld3	DEFM	'Keine Files der Spezifikation '
+76          	DEFM	'vorhanden.',0dh
+            buffer	EQU	$
+            	END	start

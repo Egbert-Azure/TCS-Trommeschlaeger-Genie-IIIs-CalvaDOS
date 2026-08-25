@@ -1,0 +1,653 @@
+            ;Interrupt-Möglichkeiten ermitteln und einbauen! Weniger saufen!
+            
+            ;SYS24/SYS: SIO-Routinen, die im Interpreter und ursprünglich an 35BB
+            ;laufen, sind fest in den Interpreter eingebaut und hier nicht mehr
+            ;berücksichtigt. In dieser Form ist SYS24/SYS ohne geänderten Interpreter
+            ;nicht mehr lauffähig!
+            ;Die Maus-Routine (neu) ist auf die serielle Z-NIX-Maus programmiert.
+            ;Andere Mäuse müssen u. U. anders bedient werden.
+            
+            ;
+            ;
+            ;	geändert am 03.03.92
+            ;	von Volker
+            ;	CD	- Change Directory
+            ;	ab Zeile 548
+            ;
+            ; ACHTUNG ------------------------------------------
+            ; Wenn der Intepreter in SYS1/SYS geändert wird, muss CD auch unbedingt
+            ; geändert werden, da CD im gebankten SYS1 die Dosready meldung patcht
+            ; ACHTUNG -----------------------------------------------------
+            ;
+            ;
+            m0033	EQU	0033h		;UP Akku auf den Bildschirm ausgeben
+            m0216	EQU	0216h		;Puffer für den Inhalt von WR5, Kanal A
+            m0297	EQU	0297h		;UP liest Datum von SIO, evtl. "busy"
+            m029b	EQU	029bh		;Puffer für Ctrl.-Port Kanal A bzw. B
+            m05bb	EQU	05bbh		;dort Druckerausgabe
+            m05bd	EQU	05bdh		;wird auf SIO-Ausgabe umgestellt
+            m05d1	EQU	05d1h		;dort Druckerabfrage
+            m05d2	EQU	05d2h		;wird auf SIO-Abfrage umgestellt
+            m4200	EQU	4200h		;DOS-Sektorpuffer ohne RAM-Disk
+            m42e0	EQU	42e0h		;ab hier SIO-Parameter im Sektorpuffer
+            m42e2	EQU	42e2h		;Puffer für Protokoll-Bits
+            m42e3	EQU	42e3h		;Puffer für WR3, u. a. Anzahl Datenbits
+            m42e5	EQU	42e5h		;Puffer u. a. für PR/NOPR-Flag
+            m4467	EQU	4467h		;UP String auf den Bildschirm ausgeben
+            m4630	EQU	4630h		;UP diskrelativen Sektor einlesen
+            m4640	EQU	4640h		;UP diskrelativen Sektor schreiben
+            m4776	EQU	4776h		;UP Laufwerk (A) selektieren und starten
+            m4cd5	EQU	4cd5h		;UP Trennzeichen untersuchen und interpr.
+            
+            	ORG	4d00h
+            
+FE FA       sys24	CP	0fah		;Requestcode für SYS24/SYS
+20 07       	JR	NZ,error	;falls anderer Requestcode
+0D          	DEC	C		;C = 01 ?
+28 07       	JR	Z,sio		;falls ja
+0D          	DEC	C		;C = 02 ?
+CA CF 50    	JP	Z,chadir	;falls ja
+            
+3E 2A       error	LD	A,2ah		;Fehlercode "unzulässige DOS-Funktion"
+C9          	RET			;raus mit Fehlerbedingung
+            
+            
+E5          sio	PUSH	HL		;Befehlszeiger retten
+CD D5 4C    	CALL	m4cd5		;HL auf nächst. Zeichen im Befehl stellen
+7E          	LD	A,(HL)		;laden
+FE 3A       	CP	':'		;Trennzeichen für Laufwerksnummer?
+3E 05       	LD	A,05h		;Akku löschen
+20 11       	JR	NZ,m4d1d	;Laufwerk 0, falls kein Doppelpunkt
+23          	INC	HL		;Doppelpunkt: Zeiger auf nächstes Zeichen
+7E          	LD	A,(HL)		;laden
+E6 F8       	AND	0f8h		;Bits 0-2 maskieren
+FE 30       	CP	'0'		;eine Ziffer?
+28 04       	JR	Z,m4d18		;falls ja
+E1          	POP	HL		;Befehlszeiger
+3E 20       	LD	A,20h		;Fehlercode "unzul. o. fehlend. Laufwerk"
+C9          	RET			;raus mit Fehler
+            
+7E          m4d18	LD	A,(HL)		;Lw-Nr. laden
+E6 07       	AND	07h		;Bits 0-2: Laufwerk 0-3 möglich
+23          	INC	HL		;auf nächstes Zeichen im Befehl stellen
+E3          	EX	(SP),HL		;Zeiger retten, HL <- Anf. Befehlsstring
+CD 76 47    m4d1d	CALL	m4776		;Laufwerk (A) selektieren und starten
+20 09       	JR	NZ,m4d2b	;falls ein Fehler auftrat
+21 00 42    	LD	HL,m4200	;Sektorpuffer
+11 02 00    	LD	DE,0002h	;diskrelativer Sektor 2
+CD 30 46    	CALL	m4630		;diesen laden
+E1          m4d2b	POP	HL		;Befehlszeiger zurück
+C0          	RET	NZ		;zurück bei aufgetretenem Fehler
+DD E5       	PUSH	IX		;retten
+CD 68 4E    	CALL	m4e5b		;Register für Kanal A aufsetzen
+11 98 4D    m4d32	LD	DE,m4d8b	;ab String "PR"
+CD D5 4C    	CALL	m4cd5		;Trennzeichen untersuchen
+CD D5 4C    	CALL	m4cd5		;es ist das nächste Zeichen
+CA 19 4F    	JP	Z,m4f0e		;falls CR
+E5          	PUSH	HL		;Befehlszeiger retten
+EB          	EX	DE,HL		;DE <- Befehlszeiger, HL <- "PR"
+1A          m4d40	LD	A,(DE)		;Zeichen des Befehlsstrings laden
+FE 2C       	CP	','		;Trennzeichen?
+28 17       	JR	Z,m4d5c		;falls ja
+FE 20       	CP	' '		;auch als Trennzeichen erlaubt
+28 13       	JR	Z,m4d5c		;falls dieses
+FE 0D       	CP	0dh		;Befehlsstring zuende?
+28 0F       	JR	Z,m4d5c		;falls ja
+CB 7E       	BIT	7,(HL)		;String zuende? (es folgt CALL, Opc. CDh)
+20 20       	JR	NZ,m4d71	;falls ja
+34          	INC	(HL)		;auf 00 prüfen
+35          	DEC	(HL)		;(= Ende der Tabelle)
+28 2F       	JR	Z,m4d84		;Ende, Syntaxfehler, falls nicht gefunden
+BE          	CP	(HL)		;das richtige Zeichen gefunden?
+20 19       	JR	NZ,m4d71	;falls nein
+23          	INC	HL		;o. k., nächstes Zeichen der Tabelle
+13          	INC	DE		;und des Befehlsstrings
+18 E4       	JR	m4d40		;bis Ende der Tabelle oder des Befehls
+            
+CB 7E       m4d5c	BIT	7,(HL)		;nächster Parameter in der Tabelle?
+28 11       	JR	Z,m4d71		;falls nein
+F1          	POP	AF		;Stack bereinigen
+D5          	PUSH	DE		;Befehlszeiger retten
+23          	INC	HL		;auf nächstes Zeichen in der Tabelle
+5E          	LD	E,(HL)		;DE <- nächste beiden Zeichen
+23          	INC	HL
+56          	LD	D,(HL)
+01 7B 4D    	LD	BC,m4d6e	;Fortsetzungsadresse
+C5          	PUSH	BC		;als RET-Adresse auf den Stack
+23          	INC	HL		;nächstes Zeichen im String
+7E          	LD	A,(HL)		;laden
+EB          	EX	DE,HL		;HL <- Bearbeitungsadresse
+E9          	JP	(HL)		;UP anspringen
+            
+            ;Rückkehr hierher:
+E1          m4d6e	POP	HL
+18 C1       	JR	m4d32		;gegf. nächsten Parameter bearbeiten
+            
+CB 7E       m4d71	BIT	7,(HL)		;CALL-Befehl angetroffen?
+23          	INC	HL		;auf LSB der CALL-Adresse stellen
+28 FB       	JR	Z,m4d71		;falls CALL-Befehl noch nicht gefunden
+23          	INC	HL		;auf MSB stellen
+23          m4d77	INC	HL		;auf Byte nach der CALL-Adresse
+7E          	LD	A,(HL)		;laden
+B7          	OR	A		;= 00? (Tabelle zuende)
+28 04       	JR	Z,m4d80		;falls ja
+FE 20       	CP	' '		;kein anzeigbares Zeichen?
+38 F7       	JR	C,m4d77		;falls dem so ist
+D1          m4d80	POP	DE		;Befehlszeiger
+D5          	PUSH	DE		;wieder auf den Stack
+18 BC       	JR	m4d40		;nächsten Parameter bearbeiten
+            
+E1          m4d84	POP	HL		;restaurieren
+DD E1       	POP	IX
+3E 34       	LD	A,34h		;Fehlercode "Trennzeichen oder Endz. ..."
+B7          	OR	A		;NZ-Flag setzen (Fehlerflag)
+C9          	RET			;zurück mit Fehlerbedingung
+            
+50          m4d8b	DEFM	'PR'		;Befehlsparameter (hier: Druckerbedien.)
+CD FC 4E    	CALL	m4ef1		;Bearbeitungsroutine
+4E          	DEFM	'NOPR'		;usw. für alle Parameter des Befehls
+CD 10 4F    	CALL	m4f05
+41          	DEFM	'A'		;SIO-Kanal
+CD 68 4E    	CALL	m4e5b
+42          	DEFM	'B'
+CD 77 4E    	CALL	m4e6a
+45          m4d9f	DEFM	'EVEN'		;Parität
+CD 96 4E    	CALL	m4e89
+4F          m4da6	DEFM	'ODD'
+CD 9A 4E    	CALL	m4e8d
+4E          m4dac	DEFM	'NO'
+CD 9E 4E    	CALL	m4e91
+35          	DEFM	'5'		;Datenbits pro Zeichen
+CD D9 4E    	CALL	m4ecc
+36          	DEFM	'6'
+CD DD 4E    	CALL	m4ed0
+37          	DEFM	'7'
+CD E1 4E    	CALL	m4ed4
+38          	DEFM	'8'
+CD E5 4E    	CALL	m4ed8
+31          	DEFM	'1'		;Stopbits
+CD C8 4E    	CALL	m4ebb
+32          	DEFM	'2'
+CD D0 4E    	CALL	m4ec3
+31          m4dc9	DEFM	'1.5'
+CD CC 4E    	CALL	m4ebf
+58          m4dcf	DEFM	'XON'		;Protokoll
+CD AA 4E    	CALL	m4e9d
+52          m4dd5	DEFM	'RTS'
+CD AE 4E    	CALL	m4ea1
+44          m4ddb	DEFM	'DTR'
+CD B2 4E    	CALL	m4ea5
+57          m4de1	DEFM	'WAIT'
+CD BE 4E    	CALL	m4eb1
+4E          m4de8	DEFM	'NOWAIT'
+CD C3 4E    	CALL	m4eb6
+31          m4df1	DEFM	'19200'		;Baudrate
+CD 86 4E    	CALL	m4e79		;Bearbeitungsroutine
+01          	DEFB	01h		;Bitmaske der Baudrate für Port F1
+39          	DEFM	'9600'		;usw. für alle Baudrates
+CD 86 4E    	CALL	m4e79
+08          	DEFB	08h
+34          	DEFM	'4800'
+CD 86 4E    	CALL	m4e79
+09          	DEFB	09h
+32          	DEFM	'2400'
+CD 86 4E    	CALL	m4e79
+0C          	DEFB	0ch
+31          	DEFM	'1800'
+CD 86 4E    	CALL	m4e79
+0A          	DEFB	0ah
+31          	DEFM	'1200'
+CD 86 4E    	CALL	m4e79
+0B          	DEFB	0bh
+36          	DEFM	'600'
+CD 86 4E    	CALL	m4e79
+06          	DEFB	06h
+33          	DEFM	'300'
+CD 86 4E    	CALL	m4e79
+0D          	DEFB	0dh
+32          	DEFM	'200'
+CD 86 4E    	CALL	m4e79
+05          	DEFB	05h
+31          	DEFM	'150'
+CD 86 4E    	CALL	m4e79
+0E          	DEFB	0eh
+31          	DEFM	'134.5'
+CD 86 4E    	CALL	m4e79
+04          	DEFB	04h
+31          	DEFM	'110'
+CD 86 4E    	CALL	m4e79
+0F          	DEFB	0fh
+37          	DEFM	'75'
+CD 86 4E    	CALL	m4e79
+03          	DEFB	03h
+35          	DEFM	'50'
+CD 86 4E    	CALL	m4e79
+02          	DEFB	02h
+00          	NOP			;Flag für Ende der Tabelle
+            
+            ;Selektion des Kanals
+3E 00       m4e5b	LD	A,00h		;Befehl NOP
+32 88 4E    	LD	(m4e7b),A	;dort patchen
+3E F0       	LD	A,0f0h		;Maske für oberes Nibble
+32 90 4E    	LD	(m4e83),A	;dort patchen
+DD 21 E0 42 	LD	IX,m42e0	;Beginn der SIO-Parameter Kanal A
+C9          	RET
+            
+3E 07       m4e6a	LD	A,07h		;Befehl RLCA (Nibbles tauschen)
+32 88 4E    	LD	(m4e7b),A	;dort patchen
+3E 0F       	LD	A,0fh		;Maske für unteres Nibble
+32 90 4E    	LD	(m4e83),A
+DD 21 E5 42 	LD	IX,m42e5	;Beginn der SIO-Parameter Kanal B
+C9          	RET
+            
+            ;Baudrate
+06 04       m4e79	LD	B,04h		;Zähler 4 Bits zum Tauschen der Nibbles
+00          m4e7b	NOP			;oder RLCA, je nach Nibble (Kanal A o. B)
+10 FD       	DJNZ	m4e7b		;Nibbles vertauschen
+47          	LD	B,A		;merken
+3A E0 42    	LD	A,(m42e0)	;bisheriger Wert für beide Kanäle
+E6 00       	AND	00h		;Maske für das Nibble
+            m4e83	EQU	$-1		;wird je nach Kanal gepatcht
+B0          	OR	B		;mit neuem Wert verknüpfen
+32 E0 42    	LD	(m42e0),A	;Byte neu puffern
+C9          	RET
+            
+            ;Parity
+0E 03       m4e89	LD	C,03h		;für EVEN
+18 06       	JR	m4e93
+            
+0E 01       m4e8d	LD	C,01h		;für ODD
+18 02       	JR	m4e93
+            
+0E 00       m4e91	LD	C,00h		;für NO
+DD 7E 04    m4e93	LD	A,(IX+04h)	;Puffer für WR4
+E6 FC       	AND	0fch		;Nicht-Parity-Bits maskieren
+B1          m4e98	OR	C		;Stop- bzw. Parity-Bits setzen
+DD 77 04    	LD	(IX+04h),A	;Puffer für WR4 neu schreien
+C9          	RET
+            
+            ;Protokoll
+0E 80       m4e9d	LD	C,80h		;für XON
+18 06       	JR	m4ea7
+            
+0E 20       m4ea1	LD	C,20h		;für RTS
+18 02       	JR	m4ea7
+            
+0E 08       m4ea5	LD	C,08h		;für DTR
+DD 7E 02    m4ea7	LD	A,(IX+02h)	;Puffer für WR5
+E6 57       	AND	57h		;übrige Bits maskieren
+B1          	OR	C		;obige Bits setzen
+DD 77 02    	LD	(IX+02h),A	;Puffer neu schreiben
+C9          	RET
+            
+DD CB 02 C6 m4eb1	SET	0,(IX+02h)	;WAIT markieren
+C9          	RET
+            
+DD CB 02 86 m4eb6	RES	0,(IX+02h)	;NOWAIT markieren
+C9          	RET
+            
+            ;Stopbits
+0E 04       m4ebb	LD	C,04h		;für 1 Stopbit
+18 06       	JR	m4ec5
+            
+0E 08       m4ebf	LD	C,08h		;für 1.5 Stopbits
+18 02       	JR	m4ec5
+            
+0E 0C       m4ec3	LD	C,0ch		;für 2 Stopbits
+DD 7E 04    m4ec5	LD	A,(IX+04h)	;Puffer für WR4
+E6 F3       	AND	0f3h		;übrige Bits maskieren
+18 CC       	JR	m4e98		;Stopbit-Muster schreiben und zurück
+            
+            ;Datenbits pro Zeichen
+0E 00       m4ecc	LD	C,00h		;bei 5 Datenbits
+18 0A       	JR	m4edc
+            
+0E 40       m4ed0	LD	C,40h		;bei 6 Datenbits
+18 06       	JR	m4edc
+            
+0E 20       m4ed4	LD	C,20h		;bei 7 Datenbits
+18 02       	JR	m4edc
+            
+0E 60       m4ed8	LD	C,60h		;bei 8 Datenbits
+DD 7E 05    m4edc	LD	A,(IX+05h)	;Puffer für WR5 (Datenbits beim Senden)
+E6 9F       	AND	9fh		;übrige Bits maskieren
+B1          	OR	C		;Bits für Datenbits/Zeichen setzen
+DD 77 05    	LD	(IX+05h),A	;für WR5 neu schreiben
+CB 01       	RLC	C		;Bit 5-6 -> 6-7 in WR3 (Empfangs-Datenb.)
+DD 7E 03    	LD	A,(IX+03h)	;Puffer für WR3
+E6 3F       	AND	3fh		;übrige Bits maskieren
+B1          	OR	C		;Bits für Datenbits/Zeichen setzen
+DD 77 03    	LD	(IX+03h),A	;für WR3 neu schreiben
+C9          	RET
+            
+            ;serielle Druckerbedienung
+DD E5       m4ef1	PUSH	IX		;je nach Kanal 42E0 oder 42E5
+C1          	POP	BC		;weil der Befehl SBC HL,IX nicht exisiert
+21 CA 85    	LD	HL,2*m42e5	;zur Berechnung von IX+5 des anderen Kan.
+B7          	OR	A		;Cy löschen wegen SBC
+ED 42       	SBC	HL,BC		;A: 42EA, B: 42E5 (= IX+5 des and. Kan.)
+CB BE       	RES	7,(HL)		;PR-Bits des anderen Kanals löschen
+CB 8E       	RES	1,(HL)
+DD 7E 05    	LD	A,(IX+05h)	;PR-Flag in der Parameterliste
+F6 82       	OR	82h		;PR-Bits des selektierten Kanals setzen
+18 05       	JR	m4f0a		;in die Parameterliste setzen und raus
+            
+DD 7E 05    m4f05	LD	A,(IX+05h)	;PR-Flag der Parameterliste
+E6 7D       	AND	7dh		;PR-Bits zurücksetzen
+DD 77 05    m4f0a	LD	(IX+05h),A	;PR/NOPR-Flag neu setzen
+C9          	RET
+            
+3A E0 42    m4f0e	LD	A,(m42e0)	;Baudrate beider Kanäle
+D3 F1       	OUT	(0f1h),A	;auf SIO ausgeben
+AF          	XOR	A		;A <- 00: beide Kanäle aktiv,
+D3 F2       	OUT	(0f2h),A	;Sende- = Empfangs-Baudrate
+06 02       	LD	B,02h		;Zähler für 2 SIO-Kanäle
+DD 21 E0 42 	LD	IX,m42e0	;Beginn der Parameterliste
+0E D2       	LD	C,0d2h		;Ctrl.-Port Kanal A
+3E 18       m4f1e	LD	A,18h		;Kommando Kanal-Reset
+ED 79       	OUT	(C),A		;ausgeben
+DD 36 01 00 	LD	(IX+01h),00h	;kein INT-Betrieb usw.
+DD 7E 02    	LD	A,(IX+02h)	;spezielle Bits des Protokolls
+E6 A9       	AND	0a9h		;weiß der Geier
+F6 04       	OR	04h		;dto. der Henker
+DD 77 02    	LD	(IX+02h),A	;na gut, ausnahmsweise
+DD 7E 03    	LD	A,(IX+03h)	;Puffer für WR3
+E6 C0       	AND	0c0h		;Bits für Wortlänge isolieren
+F6 01       	OR	01h		;Rx enable, sonst nichts
+DD 77 03    	LD	(IX+03h),A	;Puffer neu schreiben
+DD 7E 04    	LD	A,(IX+04h)	;Puffer für WR4
+E6 0F       	AND	0fh		;nur Parity und Stop
+F6 40       	OR	40h		;Clock *16
+DD 77 04    	LD	(IX+04h),A	;neu puffern
+DD 7E 05    	LD	A,(IX+05h)	;WR5
+E6 E2       	AND	0e2h		;verschiedenes sperren
+F6 08       	OR	08h		;Tx enable
+DD 77 05    	LD	(IX+05h),A
+07          	RLCA			;PR-Flag aktiv?
+30 1A       	JR	NC,m4f6c	;falls nein
+79          	LD	A,C		;Ctrl.-Port des jeweiligen Kanals
+32 9B 02    	LD	(m029b),A	;dort patchen
+D6 02       	SUB	02h		;Datenport
+32 BD 05    	LD	(m05bd),A	;in die Druckerroutine patchen (Ausgabe)
+3E C3       	LD	A,0c3h		;JP-Opcode
+32 D1 05    	LD	(m05d1),A	;dto. (Abfrage)
+21 97 02    	LD	HL,m0297	;JP-Adresse
+22 D2 05    	LD	(m05d2),HL	;jetzt 05D1: JP 0297
+21 00 D3    	LD	HL,00+256*0d3h	;Befehle NOP, OUT (n),A
+22 BB 05    	LD	(m05bb),HL	;in die Druckerroutine patchen
+C5          m4f6c	PUSH	BC		;Zähler der Kanäle retten
+06 05       	LD	B,05h		;Zähler 5 Daten für SIO
+AF          	XOR	A		;A <- 00, ab WR0+1 = WR1
+DD E5       	PUSH	IX
+E1          	POP	HL		;Zeiger der Parameterliste
+23          	INC	HL		;auf IX+1
+3C          m4f74	INC	A		;ab WR1 usw.
+ED 79       	OUT	(C),A		;Register adressieren
+ED A3       	OUTI			;Pufferdatum auf das Register ausgeben
+20 F9       	JR	NZ,m4f74	;bis 5 Register (bis WR5) geschr. sind
+2B          	DEC	HL		;wird neues IX+0
+E5          	PUSH	HL
+DD E1       	POP	IX
+C1          	POP	BC		;Zähler für 2 Kanäle
+0C          	INC	C		;Ctrl.-Port Kanal B
+10 9C       	DJNZ	m4f1e		;Kanal B ebenso initialisieren
+18 0F       	JR	m4f94
+            
+3E 20       m4f85	LD	A,' '		;Blank
+C3 33 00    	JP	m0033		;anzeigen und zurück
+            
+7E          m4f8a	LD	A,(HL)		;Zeichen des Strings laden
+CB 7F       	BIT	7,A		;String zuende? (CALL-Befehl folgt)
+C0          	RET	NZ		;falls ja
+23          	INC	HL		;Zeiger auf nächstes Zeichen
+CD 33 00    	CALL	m0033		;anzeigen
+18 F6       	JR	m4f8a		;und so weiter
+            
+06 02       m4f94	LD	B,02h		;Zähler 2 Kanäle
+DD 21 E0 42 	LD	IX,m42e0	;Zeiger auf die Daten
+21 C6 50    m4f9a	LD	HL,m50ce	;Text "SIO "
+CD 67 44    	CALL	m4467		;anzeigen
+3E 43       	LD	A,'B'+1		;höchstzulässiger Kanal +1
+90          	SUB	B		;A <- "A" oder "B"
+CD 33 00    	CALL	m0033		;anzeigen
+CD 8F 4F    	CALL	m4f85		;Blank dahinter
+21 FE 4D    	LD	HL,m4df1	;Tabelle der Baudrates
+3A E0 42    	LD	A,(m42e0)	;Baudrate-Puffer für beide Kanäle
+05          	DEC	B		;noch Kanal A?
+20 04       	JR	NZ,m4fb6	;falls schon Kanal B
+0F          	RRCA			;ins untere Nibble rotieren
+0F          	RRCA
+0F          	RRCA
+0F          	RRCA
+04          m4fb6	INC	B		;Zähler restaurieren
+E6 0F       	AND	0fh		;Bits des anderen Kanals maskieren
+20 01       	JR	NZ,m4fbc	;falls > 0
+3C          	INC	A		;sonst A <- 1 (0 u. 1 bedeuten 19.200 Bd)
+FE 07       m4fbc	CP	07h		;2.400 Bd?
+20 02       	JR	NZ,m4fc2	;falls nein
+3E 0C       	LD	A,0ch		;07 und 0C bedeuten 2.400 Bd
+5D          m4fc2	LD	E,L		;DE <- Adresse der Baudrate in ASCII
+54          	LD	D,H
+CB 7E       m4fc4	BIT	7,(HL)		;Ende des ASCII-Strings? (es folgt CALL)
+23          	INC	HL		;auf nächstes Zeichen stellen
+28 FB       	JR	Z,m4fc4		;falls CALL-Befehl noch nicht erreicht
+23          	INC	HL		;CALL-Adresse überspringen
+23          	INC	HL
+BE          	CP	(HL)		;richtige Baudrate gefunden?
+23          	INC	HL		;auf nächsten Baudrate-String
+20 F3       	JR	NZ,m4fc2	;falls noch nicht gefunden
+EB          	EX	DE,HL		;HL <- ASCII-String der Baudrate
+CD 94 4F    	CALL	m4f8a		;String anzeigen
+CD 8F 4F    	CALL	m4f85		;Blank dahinter
+DD 7E 03    	LD	A,(IX+03h)	;Puffer für Datenbits/Zeichen
+07          	RLCA			;*2 für Rechnerei
+CB 8F       	RES	1,A		;für Rechnerei (kein Wortlängen-Bit)
+CB 7F       	BIT	7,A		;7 oder 8 Bits/Zeichen?
+28 02       	JR	Z,m4fe2		;falls 5 oder 6, andernfalls:
+CB CF       	SET	1,A		;min. 2, ergibt 7 oder 8 Datenbits
+E6 03       m4fe2	AND	03h		;andere Bits maskieren
+C6 35       	ADD	A,'5'		;A <- "7" oder "8" (Datenbits pro Zeich.)
+CD 33 00    	CALL	m0033		;anzeigen
+CD 8F 4F    	CALL	m4f85		;Blank dahinter
+DD 7E 04    	LD	A,(IX+04h)	;Puffer für WR4
+F5          	PUSH	AF
+E6 0C       	AND	0ch		;Stopbit-Muster
+20 08       	JR	NZ,m4ffc	;falls Stopbits programmiert
+21 CB 50    	LD	HL,m50d3	;Text "?S?" (Sync-Mode nicht vorgesehen)
+CD 67 44    	CALL	m4467		;anzeigen
+18 15       	JR	m5011		;weiter mit anderen Parametern
+            
+FE 08       m4ffc	CP	08h		;1.5 Stopbits?
+20 08       	JR	NZ,m5008	;falls nein
+21 D6 4D    	LD	HL,m4dc9	;String "1.5"
+CD 94 4F    	CALL	m4f8a		;String anzeigen
+18 09       	JR	m5011		;weiter mit anderen Parametern
+            
+0F          m5008	RRCA			;Bits 2-3 -> Cy und Bit 0
+0F          	RRCA
+CB 3F       	SRL	A		;(Bit 7 muß sauber bleiben)
+C6 31       	ADD	A,'1'		;ASCII Stop-Bits
+CD 33 00    	CALL	m0033		;anzeigen
+CD 8F 4F    m5011	CALL	m4f85		;Blank dahinter
+F1          	POP	AF		;Inhalt von WR4
+CB 47       	BIT	0,A		;Parity programmiert?
+20 05       	JR	NZ,m501e	;falls ja
+21 B9 4D    	LD	HL,m4dac	;sonst Text "NO"
+18 0A       	JR	m5028		;anzeigen usw.
+            
+CB 4F       m501e	BIT	1,A		;parity even?
+21 AC 4D    	LD	HL,m4d9f	;Text "EVEN"
+20 03       	JR	NZ,m5028	;falls ja
+21 B3 4D    	LD	HL,m4da6	;sonst Text "ODD"
+CD 94 4F    m5028	CALL	m4f8a		;String anzeigen
+CD 8F 4F    	CALL	m4f85		;Blank dahinter
+DD 7E 02    	LD	A,(IX+02h)	;versch. Bits des Protokolls
+21 DC 4D    	LD	HL,m4dcf	;Text "XON"
+CB 7F       	BIT	7,A		;XON?
+20 0A       	JR	NZ,m5042	;falls ja
+21 E2 4D    	LD	HL,m4dd5	;Text "RTS"
+CB 6F       	BIT	5,A		;RTS?
+20 03       	JR	NZ,m5042	;falls ja
+21 E8 4D    	LD	HL,m4ddb	;sonst Text "DTR"
+F5          m5042	PUSH	AF
+CD 94 4F    	CALL	m4f8a		;String anzeigen
+CD 8F 4F    	CALL	m4f85		;Blank dahinter
+F1          	POP	AF
+21 EE 4D    	LD	HL,m4de1	;Text "WAIT"
+CB 47       	BIT	0,A		;WAIT?
+20 03       	JR	NZ,m5054	;falls ja
+21 F5 4D    	LD	HL,m4de8	;sonst Text "NOWAIT"
+CD 94 4F    m5054	CALL	m4f8a		;String anzeigen
+DD CB 05 7E 	BIT	7,(IX+05h)	;PR-Flag?
+28 09       	JR	Z,m5066		;falls nein
+CD 8F 4F    	CALL	m4f85		;Blank dahinter
+21 98 4D    	LD	HL,m4d8b	;Text "PR"
+CD 94 4F    	CALL	m4f8a		;String anzeigen
+3E 0D       m5066	LD	A,0dh		;CR
+CD 33 00    	CALL	m0033		;ausgeben
+DD 21 E5 42 	LD	IX,m42e5	;Parameterliste für Kanal B
+05          	DEC	B		;Sprung zu weit für DJNZ
+C2 A4 4F    	JP	NZ,m4f9a	;gegf. Parameter für Kanal B anzeigen
+21 16 02    	LD	HL,m0216	;residenter Puffer für WR5, Kanal A
+3A E5 42    	LD	A,(m42e5)	;dort stehen die Daten
+77          	LD	(HL),A		;in den Puffer schreiben
+23          	INC	HL		;auf 0217
+DD 7E 05    	LD	A,(IX+05h)	;Puffer für WR5, Kanal B
+77          	LD	(HL),A		;dort ablegen
+06 02       	LD	B,02h		;Zähler für 2 Kanäle
+3A E3 42    	LD	A,(m42e3)	;Datum von WR3, Kanal A
+E6 C0       m5084	AND	0c0h		;Bits für die Wortlänge
+0E FF       	LD	C,0ffh		;AND-Maske für empfangenes Byte
+FE C0       	CP	0c0h		;8 Bits/Zeichen?
+28 0E       	JR	Z,m509a		;falls ja
+0E 7F       	LD	C,7fh
+FE 40       	CP	40h		;7 Bits?
+28 08       	JR	Z,m509a
+0E 3F       	LD	C,3fh
+FE 80       	CP	80h		;6 Bits?
+28 02       	JR	Z,m509a
+0E 1F       	LD	C,1fh		;bei 5 Bits/Zeichen
+23          m509a	INC	HL		;auf 0218 (Kanal A) bzw. 0219 (Kanal B)
+71          	LD	(HL),C		;AND-Maske puffern
+DD 7E 03    	LD	A,(IX+03h)	;Datum von WR3, Kanal B
+10 E3       	DJNZ	m5084		;bis Inhalt von WR3, Kan. A und B gepuff.
+3A E2 42    	LD	A,(m42e2)	;Bitmuster für Protokoll, Kanal A
+23          	INC	HL		;auf 021A
+77          	LD	(HL),A		;puffern
+DD 7E 02    	LD	A,(IX+02h)	;dto. Kanal B
+23          	INC	HL		;auf 021B
+77          	LD	(HL),A		;puffern
+11 02 00    	LD	DE,0002h	;diskrelativer Sektor 2
+21 00 42    	LD	HL,m4200	;Sektorpuffer
+CD 40 46    	CALL	m4640		;Sektor neu schreiben
+FE 0F       	CP	0fh		;Fehlercode "Diskette schreibgeschützt"?
+20 01       	JR	NZ,m50ca	;falls anderer Fehler
+AF          	XOR	A		;Flag "kein Fehler" bei Schreibschutz
+DD E1       m50ca	POP	IX
+C9          	RET			;zurück mit Fehlerstatus
+            
+53          m50ce	DEFM	'SIO ',03h	;Texte für Parameteranzeige der SIO
+3F          m50d3	DEFM	'?S?',03h
+            
+            ;		Change Directory
+            ;
+            ;
+            ;	Setzt Defaultlaufwerk nach Namens eingabe
+            ;
+            ;	RAMDISK		- LW# 3
+            ;	DOS		- LW# 5
+            ;	SOURCES		- LW# 6
+            ;	WORKBENC	- LW# 7
+            ;	DATEN		- LW# 8
+            ;	SONSTIGES	- LW# 9
+            ;	DISK0		- LW# 0
+            ;	DISK1		- LW# 1
+            ;
+            ;
+            dosrdy	EQU	402dh
+            doserr	EQU	4409h
+            gibaus	EQU	4467h
+            dirlw	EQU	43a0h
+            openlw	EQU	43a1h
+            verglei	EQU	4cc5h
+            
+            	ORG	3000h		; muss hier stehen wegen Common
+E5          chadir	PUSH	HL		; HL retten
+D1          	POP	DE		; HL -> DE
+01 48 51    	LD	BC,text0	; 'DISK0',00
+CD C5 4C    	CALL	verglei
+28 4C       	JR	Z,eintrag	; wenn text gleich, weiter
+D5          	PUSH	DE
+E1          	POP	HL
+01 5A 51    	LD	BC,text1        ; 'DISK1',00
+CD C5 4C    	CALL	verglei
+28 42       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 6C 51    	LD	BC,text2	; 'RAMDISK',00
+CD C5 4C    	CALL	verglei
+28 38       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 7F 51    	LD	BC,text5	; 'DOS',00
+CD C5 4C    	CALL	verglei		;
+28 2E       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 93 51    	LD	BC,text6	; 'SOURCES',00
+CD C5 4C    	CALL	verglei
+28 24       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 A6 51    	LD	BC,text7	; 'WORKBENC',00
+CD C5 4C    	CALL	verglei
+28 1A       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 BB 51    	LD	BC,text8	; 'DATEN',00
+CD C5 4C    	CALL	verglei
+28 10       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 CC 51    	LD	BC,text9	; 'SONSTI',00
+CD C5 4C    	CALL	verglei
+28 06       	JR	Z,eintrag
+3E 20       abgang	LD	A,20h		; 'unzulässiges od. Fehlendes LW'
+B7          	OR	A
+C3 09 44    	JP	doserr
+0A          eintrag	LD	A,(BC)
+32 A0 43    	LD	(dirlw),A	; lwnummern eintragen
+32 A1 43    	LD	(openlw),A
+            ;
+            ; ab hier soll in bank 0 der name gepatcht werden, dessen laufwerks
+            ; nummer gewählt wurde.
+DB F9       	IN	A,(0f9h)	;sysport 0 ist der Bankingport
+CB 87       	RES	0,A		; common unten
+CB B7       	RES	6,A		; bank 0 anwählen
+CB BF       	RES	7,A		;  dito
+F3          	DI			; jetzt wirds heikel
+D3 F9       	OUT	(0f9h),A	; diese Konfiguration ausgeben
+03          	INC	BC		; bc muß um 5 erniedrigt werden
+            	     		; um auf den Anfang von
+            	 	  		; text(x)	zu zeigen
+60          	LD	H,B		; wegen LDIR, source ist HL
+69          	LD	L,C		; nicht wahr
+            ; Hier steht die Adresse, die gegebenenfalls geändert werden muß
+11 00 00    	LD	DE,90bbh	; ist in dem gebankten SYS1 der
+            ; falls der Interpreter geändert wurde. Man muß mit dem Booteprom
+            ; monitor sich die genaue Stelle in Bank 0 angucken. !!!
+01 10 00    	LD	BC,0010h	; Bank 0 die adresse des DOS-Ready
+ED B0       	LDIR			; strings, wird so gepatcht
+3E 40       	LD	A,40h		; normale konfiguration von port
+D3 F9       	OUT	(0f9h),A	; f9
+FB          	EI
+C9          	RET
+44          text0	DEFM	'DI0',00,00,':0Disk_0 >',1eh,03
+44          text1	DEFM	'DI1',00,01,':1Disk_1 >',1eh,03
+00          text2	DEFM	'RAM',00,03h,':3Ramdisk >',1eh,03
+44          text5	DEFM	'DOS',00,05,':5CalvaDOS >',1eh,03
+53          text6	DEFM	'SOU',00,06,':6Sources >',1eh,03
+57          text7	DEFM	'WOR',00,07,':7Workbench >',1eh,03
+44          text8	DEFM	'DAT',00,08,':8Daten >',1eh,03
+53          text9	DEFM	'SON',00,09,':9Sonstiges >',1eh,03
+            	END	sys24

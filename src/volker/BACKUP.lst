@@ -1,0 +1,88 @@
+            ;	BACKUP/CMD
+            ;
+            ;
+            ; dieses Programm soll von der Festplatte Backup's erstellen.
+            ; Es tut dies indem nur Files kopiert werden, deren Bearbeitungs-
+            ; kennzeichen gesetzt ist. Dies ist der Fall, wenn ein File neu
+            ; in ein Directory eingetragen wurde oder wenn das File verändert
+            ; wurde. Man wird aufgefordert, die Backup-Disketten 5 bis 9
+            ; nacheinander einzustecken.
+            ;
+            ;
+            ;
+            gibaus	EQU	4467h
+            dosrdy	EQU	402dh
+            doscal	EQU	4419h
+            doserr	EQU	4409h
+            datum	EQU	4470h
+            	ORG 	3000h
+7E          start	LD	A,(HL)
+FE 0D       	CP	0dh
+28 21       	JR	Z,alle
+D6 35       	SUB	'5'		; gültige LW# sind 5,6,7,8,9
+38 04       	JR	C,error
+FE 0A       	CP	10
+38 06       	JR	C,eintrag
+3E 20       error	LD	A,32
+B7          	OR	A
+C3 09 44    	JP	doserr
+C6 35       eintrag	ADD	A,'5'
+32 FE 30    	LD	(cpnum),A
+32 1B 31    	LD	(prnum),A
+32 F9 30    	LD	(lgnum),A
+32 C5 30    	LD	(afnum),A
+CD 71 30    	CALL	backup
+18 1D       	JR	ende
+01 00 05    alle	LD	BC,0500h	;5 HD-laufwerke
+C5          loop	PUSH	BC		; BC wegen Registerveränderungen pushen
+3A 38 31    	LD	A,(speich)
+3C          	INC	A		; a => '5', usw.
+32 38 31    	LD	(speich),A	; zwischenspeichern
+32 FE 30    	LD	(cpnum),A
+32 1B 31    	LD	(prnum),A
+32 F9 30    	LD	(lgnum),A
+32 C5 30    	LD	(afnum),A
+CD 71 30    	CALL	backup
+C1          	POP	BC		; BC vom Stack, schön warm und trocken
+10 E6       	DJNZ	loop
+21 4C 30    ende	LD	HL,endtex
+CD 67 44    	CALL	gibaus
+C3 2D 40    	JP	dosrdy
+44          endtex	DEFM	'Der Backupvorgang ist abgeschlossen.',0dh
+            ;
+21 A6 30    backup	LD	HL,auffor
+CD 67 44    	CALL	gibaus
+3A 40 38    loop1	LD	A,(3840h)
+FE 01       	CP	01h		; <ENTER> gedrückt??
+20 F9       	JR	NZ,loop1
+21 DA 30    	LD	HL,losgeh
+CD 67 44    	CALL	gibaus
+21 FC 30    	LD	HL,copy
+CD 19 44    	CALL	doscal
+C4 09 44    	CALL	NZ,doserr
+21 15 31    	LD	HL,prot
+CD 19 44    	CALL	doscal
+C4 09 44    	CALL	NZ,doserr
+21 2F 31    	LD	HL,buff
+CD 70 44    	CALL	datum
+21 21 31    	LD	HL,prot0		; neuestes Datum auf Disk 0
+CD 19 44    	CALL	doscal
+C4 09 44    	CALL	NZ,doserr
+C9          	RET
+            ;
+07          auffor	DEFM	07h,20h,0bh,'Lege Backup-Disk für HD LW# '
+35          afnum	DEFM	'5'
+20          	DEFM	' ein. Dann <ENTER>.',0dh
+42          losgeh	DEFM	'Backup von Festplattenlaufwerk '
+35          lgnum	DEFM	'5'
+2E          	DEFM	'.',0dh
+3E          copy	DEFM 	'> '
+35          cpnum	DEFM	'5'
+2C          	DEFM	',0,,nfmt,kdwa,edk,bea',0dh
+70          prot	DEFM	'prot :'
+35          prnum	DEFB	'5'
+2C          	DEFM	',bkl',0dh
+70          prot0	DEFM	'prot :0,datum='
+30          buff	DEFM	'00.00.00',0dh
+34          speich	DEFM	'4'
+            	END	start

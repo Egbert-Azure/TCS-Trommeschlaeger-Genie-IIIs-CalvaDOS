@@ -1,0 +1,55 @@
+            ;IO ROUTINE UM PORTS EINZULESEN
+            ; ODER UM WERTE AUF PORTS RAUSZUGEBEN
+            ; -----------------------------
+            ; VON ARNULF SOPP AUS CLUB INFO 12
+            	ORG	4200h
+            ; STARTADRESSE IM SEKTORPUFFER
+CD 21 52    START	CALL  	getval           ;
+4F          	LD	C,A
+CD D5 4C    	CALL 	4cd5h		;trennung und cr erk.
+20 11       	JR	NZ,out		;falls mehr zahlen
+            ;	INPUT abfragen
+ED 78       	IN	A,(C)
+21 00 00    	LD	HL,buffer	;cursorpos
+CD 68 40    	CALL	4068H		;INPUT ANZEIGEN
+21 00 00    	LD	HL,buffer
+CD 00 00    	CALL	4467h		; ausgeben
+C3 00 00    	JP 	402dh		;ausgebdn und ab
+            ; outputs errechnen und ausgeben
+CD D5 4C    loop	CALL	4cd5h		;trennzeichen &cr
+C8          	RET	Z
+CD 21 52    out	CALL getval		;nexte hexzahl(en)
+ED 79       	OUT	(C),A		;port c,wert a
+18 F5       	JR	loop		;usw.
+            ;eine hexzahl einlesen und auswerten
+CD 2E 52    getval	CALL	getchr		;eine zahl einlesen
+07          	RLCA
+07          	RLCA
+07          	RLCA
+07          	RLCA
+            ;ins obere nibbleschieben, also erst die hoehere stelle
+            ;der zahl nehmen
+47          	LD	B,A		;zwischenspeichern
+CD 2E 52    	CALL getchr		;untere hex-haelfte
+B0          	OR	B		;vereinigen
+C9          	RET			;zurueck mit kompl. zahl
+            ;eine hexziffer einlesen und binaer angleichen
+7E          getchr	LD      SCF,{86}           ;NEXTES ZEICEHN
+23          	INC	HL		;weiter im befehlsstring
+D6 30       	SUB	'0'		;binaerangleichung
+38 0C       	JR	C,error		;falls kleiner null
+FE 0A       	CP	0ah		;groesser neun ?
+D8          	RET	C		;fertig falls dezimal
+D6 07       	SUB	07h		;ziffern a-f
+FE 0A       	CP	0ah		;hex a oder groeser
+38 03       	JR	C,error		;falls kleiner
+CB 67       	BIT	4,A		;groeser als F ?
+C8          	RET	Z		;wenn nicht
+            ;fehlercode falscher parameter
+3E 2F       error	LD	A,2fh		;fehlercode
+C1          	POP 	BC		;stack korrigieren
+C1          	POP	BC		;zweite ebene
+C3 09 44    	JP	4409h		;doserrorexit
+00          buffer	DEFM	'ff',0dh
+            
+            	END     START

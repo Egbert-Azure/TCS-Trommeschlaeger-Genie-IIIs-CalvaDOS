@@ -1,0 +1,40 @@
+            ;	C L H
+            ;	fuer Genie IIIs
+            ;	nach	club info 08+09/86
+            ;	frueher bzw irgendwann wieder im sys4/sys
+            ;	von calvados
+            ;	jetzt erstmal als /cmd - File
+            	ORG	4200h
+CD 00 00    start	CALL	4cd5h	;trennzeichen ??
+20 00       	JR	NZ,clh0
+0E 00       clspar	LD	C,00h
+7E          	LD	A,(HL)
+D6 00       	SUB	'0'
+28 00       	JR	Z,clh0
+3D          	DEC	A
+28 00       	JR	Z,clh1
+3E 00       	LD	A,0afh
+C2 00 00    	JP	NZ,4409h
+CB C1       clh1	SET	5,C
+DB 78       clh0	IN	A,(0f9h)
+57          	LD	D,A
+B1          	OR	C
+D3 00       	OUT	(0f9h),A
+            
+DB 78       	IN	A,(0fah)
+5F          	LD	E,A
+D9          	EXX
+CB C7       	SET	3,A
+D3 00       	OUT	(0fah),A
+21 00 00    	LD	HL,8000h
+11 00 00    	LD	DE,8001h
+01 00 00    	LD	BC,7fffh
+75          	LD	(HL),L
+ED B0       	LDIR
+D9          	EXX
+7A          	LD	A,D
+D3 00       	OUT	(0f9h),A
+7B          	LD	A,E
+D3 00       	OUT	(0fah),A
+C3 00 00    	JP	4400h
+            	END	start

@@ -1,0 +1,751 @@
+            ;
+            	LIST {A0}
+            ;	am 29.02.92 geändert : Befehl H  eingefügt
+            ;				addiert und subtr. integerwerte
+            ;				wird in sys29 abgearbeitet
+            ;	am	03.03.92 geändert: ON  HRG ein
+            ;				 : OFF HRG aus
+            ;				 : PARK Harddisk auf Spur 612
+            ;				 (Alles in sys29 erledigen)
+            ;	irgendwann so die Zeit :
+            ;		CD => Change Directory
+            ;			wechselt das DOS-Prompt und Schreiblaufwerk
+            ;			sowie das DIR-Laufwerk ohne LW-Spezifikation.
+            ;			wird ii SYS24/SYS erledigt
+            ;
+            ;
+            ;	SYS1/SYS, rekonstruiert und verändert (wenn Label new EQU 1)
+            
+            new	EQU	1	;1: es gelten die Veränderungen; 0: nicht
+            
+            m0033	EQU	0033h	;UP Akku auf dem Bildschirm anzeigen
+            m0040	EQU	0040h	;UP B Zeichen nach (HL) ff. einlesen
+            m4022	EQU	4022h	;im Video-DCB Flag für Cursorstatus: an/aus
+            m402d	EQU	402dh	;Einsprung für DOS-Ready
+            m41e0	EQU	41e0h	;Ausgangsadresse für den DOS-Stack
+            m4200	EQU	4200h	;DOS-Sektorpuffer
+            m4312	EQU	4312h	;BREAK-Vektor (RST 28h, A<20h)
+            m4318	EQU	4318h	;DOS-Eingabepuffer
+            m436a	EQU	436ah	;verschiedene Flags für Betriebszustände des DOS:
+            			;Bit 7: Mini-DOS, Bit 6: DOS-CALL
+            			;Bit 5: ???,	  Bit 4: Chaining unter DOS-CAll
+            			;Rest hier nicht von Belang
+            m436b	EQU	436bh	;wird von SYS6 für CLOSE und EXPAND manipuliert
+            m436c	EQU	436ch	;weitere Flags:
+            			;Bit 6: RUN-ONLY-Modus
+            			;R. h. n. v. B.
+            m436d	EQU	436dh	;weitere Flags:
+            			;Bit 5: SYSTEM-Option BE (R-Befehl erlaubt?)
+            			;R. h. n. v. B.
+            m439b	EQU	439bh	;Puffer für den Stackpointer
+            m439d	EQU	439dh	;dto.
+            m43a7	EQU	43a7h	;Puffer für erste beide Zeichen einer Eingabe
+            m4408	EQU	4408h	;Fehleraussprung (gleich RET bei "kein Fehler")
+            m4420	EQU	4420h	;UP INIT, gegf. neues File anlegen
+            m4424	EQU	4424h	;UP OPEN, gegf. kein neues File anlegen
+            m4467	EQU	4467h	;UP Text (HL) auf den Bildschirm ausgeben
+            m4480	EQU	4480h	;FCB zum Laden und Starten von Benutzerprogrammen
+            m45b0	EQU	45b0h	;Forts.-adr. je nach SYSTEM,BG oder DOS-Befehl LC
+            m45b5	EQU	45b5h	;UP wandelt Klein- in Großbuchstaben um
+            m49d3	EQU	49d3h	;UP zum Laden von SYS-Files (raus bei Fehler)
+            m49d6	EQU	49d6h	;dto., setzt selbst Flag "kein Fehler"
+            m4cc5	EQU	4cc5h	;UP Vergleich zweier Texte (HL) und (BC)
+            m4cd5	EQU	4cd5h	;UP Prüfung auf CR, Komma und Blank
+            m4cd9	EQU	4cd9h	;UP Prüfung auf Komma und Blank
+            
+            	ORG	4d00h
+            	sys1
+            	IF	NOT,new
+FE 23       	CP	23h	;Aufruf aus SYS1 und 4400: DOS-Ready
+CA 8A 4D    	JP	Z,m4d8a
+            	ENDIF
+FE 43       	CP	43h	;DOS-Ready, Ende v. Chaining bei aufgetr. Fehler
+28 5D       	JR	Z,m4d7c
+FE 63       	CP	63h	;DOS-Befehl ausführen, nicht zum Aufrufer zurück
+CA 12 4E    	JP	Z,m4e30
+FE 83       	CP	83h	;Filespec. aus (HL) nach (DE) übertragen
+CA 31 51    	JP	Z,m5155
+FE A3       	CP	0a3h	;Default-Extension anfügen, falls keine gegeben
+CA 0B 4F    	JP	Z,m4f2a
+FE C3       	CP	0c3h	;DOS-Befehl ausführen, Rückkehr zum Aufrufer
+28 29       	JR	Z,m4d5b
+            	IF	new
+FE 23       	CP	23h	;Aufruf aus SYS1 und 4400: DOS-Ready
+28 54       	JR	Z,m4d8a
+            	ENDIF
+            ;beim Requestcode E3 bestimmt der Entry-Zähler die Zieladresse:
+0D          	DEC	C	;C = 1?
+            	IF	NOT,new
+28 3A       	JR	Z,m4d59	;ja: nur POP AF und RET bei Ansprung aus m4d4e
+            	ENDIF
+0D          	DEC	C	;2
+CA B8 50    	JP	Z,m50cf	;LIB bzw. ?
+0D          	DEC	C	;3
+            	IF	NOT,new
+CA 32 4D    	JP	Z,m4d32	;verbotener Code (Aussprung mit Fehlerbedingung)
+            	ENDIF
+0D          	DEC	C	;4
+CA D4 50    	JP	Z,m50f3	;Mini-DOS ready
+0D          	DEC	C	;5
+28 3D       	JR	Z,m4d80	;MDBORT bzw. /
+0D          	DEC	C	;6
+CA F0 50    	JP	Z,m5112	;MDRET bzw. ;
+0D          m4d32	DEC	C	;7
+28 2E       	JR	Z,m4d78	;???
+0D          	DEC	C	;8
+CA 15 4E    	JP	Z,m4e34	;Einsprung nach beliebiger Eingabe (z. B. Befehl)
+0D          	DEC	C	;9
+            	IF	NOT,new
+28 0C       	JR	Z,m4d48	;CLS
+            	ENDIF
+0D          	DEC	C	;10
+0D          	DEC	C	;11
+CA 44 51    	JP	Z,m5168	;Eingabe in den FCB schreiben
+0D          	DEC	C	;12
+28 29       	JR	Z,m4d80	;MDBORT bzw. /
+            
+3E 2A       illfnct	LD	A,2ah	;sonst Fehlercode "unzulässige DOS-Funktion"
+B7          	OR	A	;Flag NZ zur Fehlerausgabe
+C9          	RET		;raus mit Fehlerbedingung
+            
+            	IF	NOT,new
+21 DD 51    m4d48	LD	HL,m51f2	;Codes für CLS
+C3 67 44    	JP	m4467		;Bildschirm löschen und zurück
+            
+            ;Anspr. nicht aus SYS1. Vielleicht anderswoher? Dann feste Adresse 4D4E!
+D9          m4d4e	EXX			;Register retten
+01 01 E3    	LD	BC,0e3h*256+01h	;hat nur RET-Funkion (B <- SYS1, C=1)
+11 D3 49    	LD	DE,m49d3	;Routine zum Aufruf von SYS-Files
+C5          	PUSH	BC		;Requestcode usw. auf den Stack
+D5          	PUSH	DE		;dto. Ansprungsadresse
+D9          	EXX			;Register restaurieren
+EF          	RST	28H		;SYS1 anspringen, POP AF und RET
+            ;	und zwar gleich hier:
+F1          m4d59	POP	AF
+C9          	RET
+            
+            	ENDIF
+            ;DOS-Befehl ausführen, zum Aufrufer zurückkehren
+CD 1F 51    m4d5b	CALL	pushreg		;alle Register retten
+01 00 00    	LD	BC,0000h
+EB          	EX	DE,HL		;DE <- Adresse des Befehls
+21 6A 43    	LD	HL,m436a	;versch. Flags
+CB 76       	BIT	6,(HL)		;ist DOS-CALL aktiv?
+CB F6       	SET	6,(HL)		;als aktiv kennzeichnen
+28 04       	JR	Z,m4d6f		;falls bisher nicht aktiv
+ED 4B 9D 43 	LD	BC,(m439d)	;Zwischenspeicher für SP unter DOS-CALL
+C5          m4d6f	PUSH	BC		;retten
+ED 73 9D 43 	LD	(m439d),SP	;SP zwischenspeichern
+EB          	EX	DE,HL
+C3 16 4E    	JP	m4e35
+            
+F1          m4d78	POP	AF		;Stack bereinigen
+F1          	POP	AF		;Flags vom Stack holen
+18 0F       	JR	m4d8b		;dort weiter
+            
+            ;Einsprung bei angezeigtem Fehler, gegf. Chaining beenden
+AF          m4d7c	XOR	A		;Z-Flag setzen
+37          	SCF			;dto. Cy
+18 0B       	JR	m4d8b		;dort weiter
+            
+            ;Einsprung nach / bzw. MDBORT
+21 6A 43    m4d80	LD	HL,m436a	;versch. Flags
+7E          	LD	A,(HL)		;laden
+E6 2F       	AND	2fh		;nur Bits 0-3, 5 (kein Sonderstatus mehr)
+77          	LD	(HL),A		;neu ablegen
+2B          	DEC	HL		;4369: andere Flags
+CB AE       	RES	5,(HL)		;Chaining nicht mehr aktiv
+            
+            ;DOS-Ready-Einsprung
+AF          m4d8a	XOR	A		;A <- 00, Z-Flag setzen
+F3          m4d8b	DI
+21 6B 43    	LD	HL,m436b	;zur Manipulation von CLOSE und EXPAND
+36 00       	LD	(HL),00h
+2B          	DEC	HL		;436A: versch. Flags
+46          	LD	B,(HL)		;laden
+2B          	DEC	HL		;4369: andere Flags
+4E          	LD	C,(HL)		;dto.
+1E 0B       	LD	E,0bh		;Zeiger auf "Fat. DOS-F." in SYS9
+F5          	PUSH	AF		;Flags retten
+CB 50       	BIT	2,B		;"Fataler DOS-Fehler?"
+20 23       	JR	NZ,entsys9	;falls ja
+F1          	POP	AF
+F5          	PUSH	AF
+38 02       	JR	C,m4da2
+28 0A       	JR	Z,m4dac
+FE 38       m4da2	CP	38h		;Fehler "keine Mini-DOS-Fkt."?
+28 06       	JR	Z,m4dac		;falls ja
+1E 04       	LD	E,04h		;Zeiger auf Chaining-Aufruf in SYS9
+CB 69       	BIT	5,C		;ist Chaining aktiv?
+20 13       	JR	NZ,entsys9	;falls ja
+CB B6       m4dac	RES	6,(HL)		;Chaining usw. nicht mehr gesperrt
+CB 70       	BIT	6,B		;ist DOS-CALL aktiv?
+20 5B       	JR	NZ,m4e10	;falls ja
+3A 6C 43    	LD	A,(m436c)	;div. Flags
+CB 77       	BIT	6,A		;RUN-ONLY-Modus?
+28 0B       	JR	Z,m4dc4		;falls nein
+CB 69       	BIT	5,C		;ist Chaining aktiv?
+20 07       	JR	NZ,m4dc4	;falls ja
+1E 0C       	LD	E,0ch		;bewirkt Aufhebung von RUN-ONLY in SYS9
+16 EB       entsys9	LD	D,0ebh		;Requestcode für SYS9/SYS
+7A          	LD	A,D		;nach A
+4B          	LD	C,E		;Zeiger in SYS9 nach C
+EF          	RST	28H		;weiter in SYS9
+CB 78       m4dc4	BIT	7,B		;ist Mini-DOS aktiv?
+20 14       	JR	NZ,m4ddc	;falls ja
+31 E0 41    	LD	SP,m41e0	;SP auf "Nullwert" setzen
+CB 6F       	BIT	5,A		;Behandlung der BREAK-Taste
+21 B0 45    	LD	HL,m45b0	;Ansprungsadresse für BREAK-Vektor
+22 13 43    	LD	(m4312+1),HL
+3E C3       	LD	A,0c3h		;JP-Opcode
+28 02       	JR	Z,m4dd9
+3E C9       	LD	A,0c9h		;sonst RET-Opcode
+32 12 43    m4dd9	LD	(m4312),A
+21 A7 51    m4ddc	LD	HL,dosprpt
+CB 78       	BIT	7,B		;ist Mini-DOS aktiv?
+28 07       	JR	Z,m4dea		;falls nein
+ED 7B 9B 43 	LD	SP,(m439b)
+21 A3 51    	LD	HL,minprpt
+            	IF	NOT,new
+FB          m4dea	EI
+3E 0B       	LD	A,0bh		;LF
+CD 33 00    	CALL	m0033		;ausgeben
+            	ENDIF
+            	IF	new
+CD 91 51    m4dea	CALL	m51b4		;EI, LF ausgeben
+            	ENDIF
+CB 69       	BIT	5,C
+CC 67 44    	CALL	Z,m4467		;(Mini-) Prompt anzeigen, falls nein
+21 6A 43    	LD	HL,m436a
+CB EE       	SET	5,(HL)
+01 08 E3    	LD	BC,0e3h*256+08h	;Entry 8 in SYS1
+11 D6 49    	LD	DE,m49d6	;Routine zum Aufruf von SYS-Files
+C5          	PUSH	BC		;Requestcode und Entry-Nr. auf den Stack
+D5          	PUSH	DE		;dto. Ansprungsadresse
+2A 18 43    	LD	HL,(m4318)	;erste beide Zeichen des Befehls
+22 A7 43    	LD	(m43a7),HL	;für Befehl R puffern
+06 4F       	LD	B,4fh		;max. 79 Zeichen
+21 18 43    	LD	HL,m4318	;DOS-Eingabepuffer
+C3 40 00    	JP	m0040		;neue Eingabe holen, zurück bei Entry 8
+D1          m4e10	POP	DE
+ED 7B 9D 43 	LD	SP,(m439d)
+CB 69       	BIT	5,C
+28 04       	JR	Z,m4e1d
+CB 60       	BIT	4,B
+20 C2       	JR	NZ,m4ddc
+C1          m4e1d	POP	BC
+78          	LD	A,B
+B1          	OR	C
+20 03       	JR	NZ,m4e25
+23          	INC	HL
+CB B6       	RES	6,(HL)
+CB A6       m4e25	RES	4,(HL)
+ED 43 9D 43 	LD	(m439d),BC
+D5          	PUSH	DE
+F1          	POP	AF
+C3 0F 51    	JP	popreg		;alle Register restaurieren und zurück
+            
+            ;DOS-Befehl ausführen, keine Rückkehr zum Aufrufer
+            	IF	NOT,new
+31 E0 41    m4e30	LD	SP,m41e0	;Stack neu einrichten
+F5          	PUSH	AF		;weil gleich POP AF kommt
+            	ENDIF
+            	IF	new
+31 DE 41    m4e30	LD	SP,m41e0-2	;Stack neu einrichten (-2 wegen POP AF)
+            	ENDIF
+            ;DOS-Befehl ausführen
+F1          m4e34	POP	AF		;Stack berein. (gegf. CALL-Ebene löschen)
+01 2D 40    m4e35	LD	BC,m402d	;DOS-Ready-Entry
+11 08 44    	LD	DE,m4408	;DOS-Error-Entry
+C5          	PUSH	BC		;als RET-Adresse auf den Stack
+D5          	PUSH	DE		;dto.
+EB          	EX	DE,HL		;DE <- Adresse der Eingabe (4318)
+21 6A 43    	LD	HL,m436a
+CB AE       	RES	5,(HL)
+21 18 43    	LD	HL,m4318	;DOS-Eingabepuffer
+06 50       	LD	B,50h		;max. 80 Zeichen
+7E          	LD	A,(HL)		;Zeichen laden
+FE 0D       	CP	0dh		;CR?
+C8          	RET	Z		;zurück zu DOS-Ready, falls ja
+E5          	PUSH	HL		;Pufferadresse
+1A          m4e4d	LD	A,(DE)		;ein Zeichen des Befehls
+13          	INC	DE		;nächste Stelle
+CD B5 45    	CALL	m45b5		;in Großbuchstaben umwandeln
+FE 0D       	CP	0dh		;CR?
+77          	LD	(HL),A		;Zeichen zurück in den Puffer
+23          	INC	HL		;nächste Stelle
+28 07       	JR	Z,m4e5f		;falls CR angetroffen
+10 F3       	DJNZ	m4e4d		;bis max. 80 Zeichen umgewandelt
+F1          	POP	AF		;Stack bereinigen
+3E 36       	LD	A,36h		;Fehlercode "Befehl zu lang"
+B7          	OR	A		;NZ-Flag (Fehlerflag)
+C9          	RET			;raus über DOS-Error-Entry
+3A 6D 43    m4e5f	LD	A,(m436d)	;div. Flags
+CB 6F       	BIT	5,A		;DOS-Befehl R erlaubt?
+28 0F       	JR	Z,m4e75		;falls nein
+2A 18 43    	LD	HL,(m4318)	;erste zwei Zeichen laden
+11 52 0D    	LD	DE,256*0dh+'R'	;Befehl R<CR> für Befehlswiederholung
+DF          	RST	18H		;ist es R<CR>?
+20 06       	JR	NZ,m4e75	;falls nein
+2A A7 43    	LD	HL,(m43a7)	;erste beiden Z. des früheren Befehls
+22 18 43    	LD	(m4318),HL	;in den Eingabepuffer
+E1          m4e75	POP	HL		;Befehlszeiger
+11 39 4F    	LD	DE,cmdtab	;Zeiger auf Tabelle der Library-Befehle
+E5          m4e79	PUSH	HL		;retten
+1A          m4e7a	LD	A,(DE)		;Zeichen eines DOS-Befehls
+BE          	CP	(HL)		;identisch mit einem eingegebenen Z.?
+13          	INC	DE		;nächste Stelle in der Tabelle
+23          	INC	HL		;dto. im Befehl
+28 FA       	JR	Z,m4e7a		;weiter vergleichen, falls gleich
+2B          	DEC	HL		;ungleich, Befehlszeiger -1
+1B          	DEC	DE		;dto. Tabellenzeiger
+07          	RLCA			;Bit 7 gesetzt?
+30 05       	JR	NC,m4e8a	;falls nein (Befehlswort nicht zuende)
+CD D5 4C    	CALL	m4cd5		;nächstes Zeichen des Befehlsstrings
+30 1D       	JR	NC,m4ea7	;falls Trenn- oder Endzeichen
+E1          m4e8a	POP	HL		;Befehlszeiger
+1A          m4e8b	LD	A,(DE)		;letztes Zeichen des Befehlsworts
+07          	RLCA			;Cy <- Bit 7
+13          	INC	DE		;auf Entry-Zähler
+30 FB       	JR	NC,m4e8b	;falls Entry-Z. noch nicht erreicht war
+13          	INC	DE		;auf Kennbyte für Verwendbarkeit
+13          	INC	DE		;auf nächstes Befehlswort
+1A          	LD	A,(DE)		;dessen 1. Zeichen
+B7          	OR	A		;00? (Tabelle zuende)
+20 E3       	JR	NZ,m4e79	;weitersuchen, falls noch nicht
+01 43 E4    	LD	BC,0e4h*256+43h	;Requestcode für SYS2, Entry 3
+16 41       	LD	D,41h		;kennzeichnet gewöhnliches CMD-File
+7E          	LD	A,(HL)		;Zeichen des eingegebenen Befehls
+FE 2A       	CP	'*'		;soll Benutzerroutine aufgerufen werden?
+20 10       	JR	NZ,m4eb0	;gewöhnlicher Programmaufruf, falls nein
+3E EB       	LD	A,0ebh		;Requestcode für SYS9/SYS
+0E 07       	LD	C,07h		;Zeiger für Aufruf von Benutzerroutinen
+EF          	RST	28H		;SYS9 anspringen und bearbeiten
+C1          errexit	POP	BC		;Stack bereinigen
+C9          	RET			;raus mit Fehlerbedingung
+C1          m4ea7	POP	BC		;Stack bereinigen
+1A          	LD	A,(DE)		;Entry-Zähler
+4F          	LD	C,A		;nach C
+13          	INC	DE		;auf Requestcode
+1A          	LD	A,(DE)		;laden
+47          	LD	B,A		;nach B
+13          	INC	DE		;auf Kennbyte für Anwendbarkeit
+1A          	LD	A,(DE)		;laden
+57          	LD	D,A		;nach D
+CB 71       m4eb0	BIT	6,C		;unter Mini-DOS verboten?
+28 0F       	JR	Z,m4ec3		;falls nein
+3A 6A 43    	LD	A,(m436a)	;prüfen, ob Mini-DOS aktiv ist
+07          	RLCA			;Bit 7 gesetzt? (Mini-DOS aktiv)
+30 09       	JR	NC,m4ec3	;falls nein
+E6 80       	AND	80h		;Bit 7 isolieren (ehem. Bit 6, DOS-CALL)
+3E 38       	LD	A,38h		;Fehlercode "keine Mini-DOS-Funktion"
+C2 70 4D    	JP	NZ,m4d8b	;falls DOS-CALL aktiv ist
+B7          	OR	A		;NZ-Flag setzen (Fehlerflag)
+C9          	RET			;raus und Fehler anzeigen
+79          m4ec3	LD	A,C		;Entry-Zähler
+E6 1F       	AND	1fh		;nur Zeiger-Bits
+4F          	LD	C,A		;zurück nach C
+C5          	PUSH	BC		;retten (Requestcode in B)
+4A          	LD	C,D		;C <- Kennbyte für Anwendbarkeit
+79          	LD	A,C		;A <- dto.
+E6 C0       	AND	0c0h		;andere Bits (s. o.) des Zeigers
+C4 41 51    	CALL	NZ,m5165	;gegf. Filenamen in den FCB übertragen
+20 20       	JR	NZ,noname	;falls kein erlaubter Filename
+CB 69       	BIT	5,C		;2. Dateiname erforderlich?
+28 20       	JR	Z,m4ef5		;falls nein
+CD D9 4C    	CALL	m4cd9		;nächstes Zeichen des Befehls einlesen
+38 CB       	JR	C,errexit	;Fehler, falls kein Trennzeichen
+C5          	PUSH	BC		;retten
+01 A0 51    	LD	BC,to		;Text TO
+CD C5 4C    	CALL	m4cc5		;TO im Befehl?
+C1          	POP	BC
+20 05       	JR	NZ,m4ee9	;falls nein
+CD D9 4C    	CALL	m4cd9		;nächstes Zeichen einlesen
+38 BC       	JR	C,errexit	;Fehler, falls kein Trennzeichen
+D5          m4ee9	PUSH	DE
+11 E0 51    	LD	DE,fcb		;Puffer für Befehl (für 2. FCB)
+CD 44 51    	CALL	m5168		;Filenamen in den 2. FCB schreiben
+D1          	POP	DE
+3E 30       noname	LD	A,30h		;Fehlercode "kein Dateiname"
+20 B0       	JR	NZ,errexit	;falls dieser Fehler aufgetreten ist
+CB 61       m4ef5	BIT	4,C		;muß der Befehl hier zuende sein?
+C4 D5 4C    	CALL	NZ,m4cd5	;gegf. nächstes Zeichen einlesen
+20 A9       	JR	NZ,errexit	;falls kein CR folgt
+CB 59       	BIT	3,C
+28 02       	JR	Z,m4f02		;falls nein
+E3          	EX	(SP),HL		;HL retten, HL <- RET-Adresse
+E5          	PUSH	HL		;für RET auf den Stack
+79          m4f02	LD	A,C		;xxxx.x000: keine Extension
+            				;xxxx.x001: Ext. /CMD
+            				;xxxx.x010: Ext. /JOB
+E6 07       	AND	07h		;relevante Bits isolieren
+28 0E       	JR	Z,m4f15		;falls Ext. nicht zwingend notwendig
+E5          	PUSH	HL
+21 97 51    	LD	HL,defext-3	;3 Stellen vor Default-Extension /CMD
+23          m4f0b	INC	HL		;3 Stellen weiter (3 Zeichen pro Ext.)
+23          	INC	HL
+23          	INC	HL
+3D          	DEC	A		;herunterzählen
+20 FA       	JR	NZ,m4f0b	;falls /JOB
+CD 0B 4F    	CALL	m4f2a		;Default-Extension anhängen
+E1          	POP	HL
+79          m4f15	LD	A,C
+01 D3 49    	LD	BC,m49d3	;Routine zum Aufruf von SYS-Files
+C5          	PUSH	BC		;als RET-Adresse auf den Stack
+CB 7F       	BIT	7,A
+C8          	RET	Z
+06 00       	LD	B,00h		;LRL = 256
+21 00 42    	LD	HL,m4200	;Sektorpuffer
+CB 77       	BIT	6,A		;muß gegf. neues File angelegt werden?
+CA 24 44    	JP	Z,m4424		;File öffnen, falls nein
+C3 20 44    	JP	m4420		;File öffnen, gegf. neu anlegen
+            
+            ;Default-Extension anhängen, falls keine eigegeben wurde (CMD, JOB)
+D5          m4f2a	PUSH	DE		;retten
+C5          	PUSH	BC
+01 1C 09    	LD	BC,09h*256+1ch	;B <- Länge Filename, C <- max. 28 Z.
+1A          m4f2f	LD	A,(DE)		;Zeichen des Namens
+FE 3A       	CP	':'		;Lw#?
+28 0A       	JR	Z,m4f3e		;falls ja
+FE 2F       	CP	'/'		;folgt EXT?
+38 06       	JR	C,m4f3e		;falls nein (kleineres Zeichen, z. B. CR)
+28 1B       	JR	Z,m4f55		;falls ja
+0D          	DEC	C		;Zeichenzähler herunterzählen
+13          	INC	DE		;auf nächstes Zeichen stellen
+10 F1       	DJNZ	m4f2f		;max. 9 Zeichen prüfen (Name + CR)
+23          m4f3e	INC	HL		;Pufferzeiger weiterstellen
+23          	INC	HL
+E5          	PUSH	HL
+EB          	EX	DE,HL		;HL <- Befehlszeiger
+06 00       	LD	B,00h		;MSB = 00
+09          	ADD	HL,BC		;HL <- Ende des Befehls
+54          	LD	D,H		;nach DE
+5D          	LD	E,L
+2B          	DEC	HL		;Stelle davor
+13          	INC	DE		;3 Stellen dahinter
+13          	INC	DE
+13          	INC	DE
+ED B8       	LDDR			;Filenamen um 4 Stellen weiterschieben
+E1          	POP	HL		;Pufferzeiger
+0E 03       	LD	C,03h		;3 Zeichen für EXT
+ED B8       	LDDR			;EXT einkopieren
+3E 2F       	LD	A,'/'		;Trennzeichen davor
+12          	LD	(DE),A		;hinter den Filenamen
+C1          m4f55	POP	BC		;restaurieren
+D1          	POP	DE
+C9          	RET
+            
+            ;	Tabelle der LIB-Befehle
+            ;
+            ;	1. Byte:	Bit 7 als Endmarkierung des Befehlsworts
+            ;			Bit 6=1: unter Mini-DOS nicht erlaubt
+            ;			Rest: Entry-Counter
+            ;	2. Byte:	Request-Code für RST28 (Zeiger auf SYS-File)
+            ;	3. Byte:	Bit 0=1: /CMD anfügen
+            ;			Bit 1=1: /JOB anfügen
+            ;			Bit 4=1: Ende prüfen
+            ;			Bit 5=1: 2 Filespec auswerten
+            ;			Bit 6=1: neues File öffnen
+            ;			Bit 6=0: File öffnen
+            ;			Bit 7=1: Overlay laden
+            
+41          cmdtab	DEFM	'AIK',80h,53h,00h
+41          	DEFM	'APPEND',0c0h,68h,00h
+41          	DEFM	'ATTRIB',85h,0e9h,88h
+41          	DEFM	'AUTO',84h,0e9h,00h
+            	IF	NOT,new
+42          	DEFM	'B2',86h,0ebh,00h
+            	ENDIF
+42          	DEFM	'BL',81h,0e5h,00h
+42          	DEFM	'BOOT',8ah,0ebh,10h
+42          	DEFM	'BREAK',85h,0e5h,00h
+            	IF	new			; CD Change Directory eingefügt
+43          	DEFM	'CD',82h,0fah,00        ; in SYS24/SYS
+            	ENDIF
+43          	DEFM	'CLS',80h,0a6h,00h
+43          	DEFM	'CONT',0c5h,0ebh,00h
+            	IF	NOT,new
+43          	DEFM	'COPY',0c0h,48h,00h
+            	ENDIF
+43          	DEFM	'CREATE',82h,0f0h,40h
+44          	DEFM	'DATUM',8bh,0e9h,00h
+44          	DEFM	'DDE',81h,0f1h,00h
+            	IF	NOT,new
+44          	DEFM	'DIR',80h,2ah,00h
+            	ENDIF
+44          	DEFM	'DISK',83h,0ffh,00h
+44          	DEFM	'DO',0c3h,0ebh,8ah
+44          	DEFM	'DR',82h,0feh,00h
+44          	DEFM	'DUMP',87h,0e9h,0c8h
+45          	DEFM	'E',87h,0f0h,00h
+46          	DEFM	'FORM',88h,0feh,00h
+46          	DEFM	'FREE',80h,4ah,00h
+46          	DEFM	'F#',80h,0fbh,00h
+            	IF	new
+48          	DEFM	'H',84h,0ffh,00h      ;neu von Volker
+            	ENDIF
+48          	DEFM	'HIMEM',82h,0e9h,00h
+49          	DEFM	'I',80h,2ah,00h
+49          	DEFM	'INFO',81h,0ffh,00h
+4A          	DEFM	'JKL',80h,7ch,10h
+4B          	DEFM	'KILL',80h,45h,90h
+4C          	DEFM	'LC',88h,0e5h,00h
+4C          	DEFM	'LF',81h,0feh,00h
+            	IF	NOT,new
+4C          	DEFM	'LIB',82h,0e3h,00h
+            	ENDIF
+4C          	DEFM	'LIST',85h,0f0h,88h
+4C          	DEFM	'LOAD',80h,0a4h,50h
+4D          	DEFM	'M>',82h,0ebh,0b0h
+4E          	DEFM	'N',81h,0e4h,0b0h
+4E          	DEFM	'NDF',0c0h,28h,00h
+            	IF	new
+4F          	DEFM	'ON',85h,0ffh,00h	;HRG-Schirm ein
+4F          	DEFM	'OFF',86h,0ffh,00h	;HRG-Schirm aus
+50          	DEFM	'PARK',87h,0ffh,00h	;Park Harddisk
+            	ENDIF				; neu von Volker
+50          	DEFM	'PAUSE',88h,0ebh,00h
+50          	DEFM	'PD',83h,0e9h,00h
+50          	DEFM	'PIO',80h,9ch,00h
+50          	DEFM	'PORT',82h,0ffh,00h
+50          	DEFM	'PRINT',86h,0f0h,88h
+50          	DEFM	'PROT',86h,0e9h,00h
+50          	DEFM	'PURGE',89h,0e9h,00h
+52          	DEFM	'R',80h,23h,00h
+53          	DEFM	'S',81h,0e9h,00h
+            	IF	NOT,new
+53          	DEFM	'SIO',80h,0bch,00h
+            	ENDIF
+            	IF	new			; geänderte SIO-Routine
+53          	DEFM	'SIO',81h,0fah,00h	; jetzt in SYS24
+            	ENDIF
+53          	DEFM	'STMT',89h,0ebh,00h
+            	IF	new
+53          	DEFM	'SYS',80h,86h,00h
+            	ENDIF
+55          	DEFM	'UHR',82h,0e5h,00h
+56          	DEFM	'V+',84h,0e5h,00h
+5A          	DEFM	'Z',81h,0f8h,00h
+5A          	DEFM	'ZEIT',8ah,0e9h,00h
+5A          	DEFM	'ZL',82h,0f8h,88h
+30          	DEFM	'0',84h,0f0h,00h
+36          	DEFM	'64',81h,98h,00h
+38          	DEFM	'80',82h,98h,00h
+21          	DEFM	'!',83h,0ebh,8ah
+23          	DEFM	'##',83h,98h,00h
+26          	DEFM	'&',83h,0e5h,00h
+40          	DEFM	'@',81h,0f0h,00h
+            ;	{D5}	';',86h,0e3h,00h
+2F          	DEFM	'/',85h,0e3h,00h
+3E          	DEFM	'>',0c0h,48h,00h
+3F          	DEFM	'?',82h,0e3h,00h
+00          	DEFB	00h			;Kenner für Ende der Tabelle
+            	IF	NOT,new
+00          	DEFB	00h
+            	ENDIF
+            
+            ;Befehl LIB bwz. ?
+21 39 4F    m50cf	LD	HL,cmdtab	;DOS-Befehlstabelle
+            	IF	NOT,new
+0E 40       m50d2	LD	C,40h		;Zähler 63 Befehle + Nullbytes
+            	ENDIF
+06 08       m50d4	LD	B,08h		;8 Bildschirmstellen Platz pro Befehl
+7E          m50d6	LD	A,(HL)		;Zeichen des Befehls laden
+CB 7F       	BIT	7,A		;hinter dem Befehlswort?
+23          	INC	HL		;nächste Stelle
+20 05       	JR	NZ,m50e1	;falls Befehlswort vollständig angezeigt
+CD 94 51    	CALL	m51b7		;Zeichen des Befehls anzeigen
+10 F5       	DJNZ	m50d6		;Befehl komplett anzeigen, Restplatz in B
+23          m50e1	INC	HL		;Requestcode usw. überspringen
+23          	INC	HL
+7E          	LD	A,(HL)		;laden
+B7          	OR	A		;=00?
+CA 92 51    	JP	Z,m51b5		;LF ausgeben und Ende, falls ja
+            	IF	NOT,new
+0D          	DEC	C		;Zähler herunterzählen
+CC B5 51    	CALL	Z,m51b5		;LF ausgeben, falls Zähler abgelaufen
+28 E4       	JR	Z,m50d2		;dort weiter, falls Zähler abgelaufen
+            	ENDIF
+CD 89 51    	CALL	m51ad		;Blanks bis zur nächst. Achterstelle anz.
+18 E7       	JR	m50d4		;und von vorne
+            
+            ;Einsprung für Mini-DOS
+F3          m50f3	DI
+CD 1F 51    	CALL	pushreg		;alle Register retten
+21 6A 43    	LD	HL,m436a	;div. Flags
+7E          	LD	A,(HL)		;laden
+E6 C0       	AND	0c0h		;Mini-DOS oder DOS-CALL aktiv?
+20 2E       	JR	NZ,m5132	;Ende, falls ja
+3A 22 40    	LD	A,(m4022)	;Flag für Cursorstatus im DCB
+F5          	PUSH	AF		;Status retten
+ED 73 9B 43 	LD	(m439b),SP	;Stack retten
+CB FE       	SET	7,(HL)		;Flag setzen: Mini-DOS aktiv
+            	IF	NOT,new
+FB          	EI
+3E 0B       	LD	A,0bh		;LF
+CD 33 00    	CALL	m0033		;ausgeben
+            	ENDIF
+            	IF	new
+CD 91 51    	CALL	m51b4		;LF anzeigen
+            	ENDIF
+C3 6F 4D    	JP	m4d8a		;dort weiter (Mini-DOS-Ready)
+            
+            ;Einsprung nach ; bzw. MDRET
+21 6A 43    m5112	LD	HL,m436a	;versch. Flags
+CB 7E       	BIT	7,(HL)		;ist Mini-DOS aktiv?
+CA 3C 4D    	JP	Z,illfnct	;falls nein
+ED 7B 9B 43 	LD	SP,(m439b)	;Stack restaurieren
+            	IF	NOT,new
+3E 0E       	LD	A,0eh		;Code für Cursor an
+CD 33 00    	CALL	0033h		;ausgeben
+            	ENDIF
+F1          	POP	AF		;alter Cursorstatus
+B7          	OR	A		;war er an?
+47          	LD	B,A		;retten
+3E 0F       	LD	A,0fh		;Code Cursor aus
+            	IF	NOT,new
+CC 33 00    	CALL	Z,m0033		;ausgeben, falls er aus war
+            	ENDIF
+            	IF	new
+28 01       	JR	Z,dspcurs	;ausgeben, falls er aus war
+3D          	DEC	A		;A <- 0E, Code für Cursor an
+CD 33 00    dspcurs	CALL	0033h		;Cursor an/ausschalten
+            	ENDIF
+78          	LD	A,B		;Cursorstatus
+32 22 40    	LD	(m4022),A	;restaurieren
+F3          	DI
+CB BE       	RES	7,(HL)		;Flag: Mini-DOS nicht mehr aktiv
+AF          m5132	XOR	A		;Flag "kein Fehler"
+08          popreg	EX	AF,AF'		;alle Register restaurieren
+FD E1       	POP	IY
+DD E1       	POP	IX
+F1          	POP	AF
+C1          	POP	BC
+D1          	POP	DE
+E1          	POP	HL
+D9          	EXX
+C1          	POP	BC
+D1          	POP	DE
+E1          	POP	HL
+08          	EX	AF,AF'
+FB          	EI
+C9          	RET
+F1          pushreg	POP	AF		;RET-Adresse zwischenpuffern
+E5          	PUSH	HL		;alle Register retten
+D5          	PUSH	DE
+C5          	PUSH	BC
+08          	EX	AF,AF'
+D9          	EXX
+E5          	PUSH	HL
+D5          	PUSH	DE
+C5          	PUSH	BC
+F5          	PUSH	AF
+DD E5       	PUSH	IX
+FD E5       	PUSH	IY
+D9          	EXX
+08          	EX	AF,AF'
+F5          	PUSH	AF		;RET-Adresse zurück
+C9          	RET			;diese anspringen
+            
+            ;Filespec. von (HL) nach (DE) übertr. und HL auf EOS (03 oder CR) stellen
+CD 44 51    m5155	CALL	m5168		;Befehl in den FCB schreiben
+F5          	PUSH	AF		;retten
+7E          	LD	A,(HL)		;Zeichen des Befehls
+D6 03       	SUB	03h		;EOS?
+28 05       	JR	Z,m5163		;falls ja
+D6 0A       	SUB	0ah		;CR?
+28 01       	JR	Z,m5163		;falls ja
+23          	INC	HL		;nächstes Zeichen
+F1          m5163	POP	AF		;restaurieren
+C9          	RET
+            
+11 80 44    m5165	LD	DE,m4480	;FCB
+D5          m5168	PUSH	DE		;Adresse retten
+06 20       	LD	B,20h		;max. 32 Zeichen
+CD 4E 51    	CALL	m5172		;Programmnamen in den FCB übertragen
+D1          	POP	DE
+06 00       	LD	B,00h		;LRL = 256
+C9          	RET
+7E          m5172	LD	A,(HL)		;Zeichen des Befehlsstrings
+FE 2A       	CP	'*'		;für Benutzerroutinen?
+20 04       	JR	NZ,m517b	;falls nein
+12          	LD	(DE),A		;Zeichen im FCB ablegen
+13          	INC	DE		;nächste Stelle
+23          	INC	HL		;nächstes Zeichen des Befehls
+05          	DEC	B		;1 Zeichen weniger max. erlaubt
+E5          m517b	PUSH	HL		;retten
+7E          	LD	A,(HL)		;Zeichen des Befehls
+D6 30       	SUB	'0'		;falls Ziffer: binär
+FE 0A       	CP	0ah		;evtl. Buchstabe?
+CD 7D 51    	CALL	m51a1		;auf Ziffer oder Buchstaben prüfen
+30 16       	JR	NC,m519c	;falls unerlaubtes Zeichen
+7E          m5186	LD	A,(HL)		;Zeichen des Befehls
+D6 2E       	SUB	2eh
+FE 0D       	CP	0dh		;war es ':'?
+CD 7D 51    	CALL	m51a1		;auf ':' und Buchstaben prüfen
+38 06       	JR	C,m5196		;weitermachen, falls erlaubtes Zeichen
+3E 03       	LD	A,03h		;sonst EOS (String abschließen)
+12          	LD	(DE),A		;in den FCB
+F1          	POP	AF		;Stack bereinigen
+AF          	XOR	A		;Z-Flag setzen (kein Fehler)
+C9          	RET
+7E          m5196	LD	A,(HL)		;Zeichen des Befehls
+12          	LD	(DE),A		;in den FCB
+13          	INC	DE		;nächste Stelle im FCB
+23          	INC	HL		;dto. im Befehl
+10 EA       	DJNZ	m5186		;bis B Zeichen abgelegt sind
+F6 01       m519c	OR	01h		;NZ-Flag bei mehr als falscher Eingabe
+E1          	POP	HL		;Befehlszeiger
+7E          	LD	A,(HL)		;Zeichen laden
+C9          	RET
+D8          m51a1	RET	C		;falls nicht Buchstabe, Ziffer oder ':'
+7E          	LD	A,(HL)		;Zeichen noch einmal laden
+D6 41       	SUB	'A'		;Großbuchstabe?
+FE 1F       	CP	1fh		;oder Kleinbuchstabe?
+D8          	RET	C		;falls Großbuchstabe
+D6 20       	SUB	20h		;Klein- zu Großbuchstaben machen
+FE 1F       	CP	1fh		;noch höheres Zeichen?
+C9          	RET			;zurück mit Flag
+3E 20       m51ad	LD	A,' '		;Blank
+CD 94 51    m51af	CALL	m51b7		;anzeigen
+10 FB       	DJNZ	m51af		;B-mal
+C9          	RET
+            	IF	new
+FB          m51b4	EI			;INTs wieder zulassen
+            	ENDIF
+3E 0B       m51b5	LD	A,0bh		;LF
+D5          m51b7	PUSH	DE		;retten
+            	IF	NOT,new
+F5          	PUSH	AF
+            	ENDIF
+CD 33 00    	CALL	m0033		;Akku anzeigen
+            	IF	NOT,new
+F1          	POP	AF
+            	ENDIF
+D1          	POP	DE
+C9          	RET			;zurück
+43          defext	DEFM	'CMD'
+4A          	DEFM	'JOB'
+54          to	DEFM	'TO',00h
+            	IF	NOT,new
+4D          minprpt	DEFM	'Mini-'
+42          dosprpt	DEFM	'Befehlseingabe',1eh,0dh
+1C          m51f2	DEFB	1ch,1fh,03h	;Codes zum Löschen des Bildschirms
+            	ENDIF
+            	IF	new
+4D          minprpt	DEFM	'M - '
+            	LIST {A1}
+            ;	Die Position des Dosready ist wichtig für den DOS
+            ;	Befehl CD. Wenn SYS1/SYS in Bank 0 gepuffert ist
+            ;	erechnet sich die Adresse wir folgt :
+            ;	In Zeus := B 3f14h+dosprpt
+            ;
+3A          dosprpt	DEFM	':7Workbench >',1eh,03h
+            ;
+            	LIST {A0}
+20          	DEFM	'    '	;WICHTIG FÜR DEN CD-BEFEHL, WEIL SONST DIE
+            			; ENDE-KENNUNG DES FILES ÜBERSCHRIEBEN WIRD
+            			;!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            	ENDIF
+            fcb	EQU	51e0h
+            	END	sys1

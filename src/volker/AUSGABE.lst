@@ -1,0 +1,47 @@
+            ;UP AUSGABE: gibt den Filenamen in HL auf dem Bildschirm oder Drucker aus
+            ;            und zwar 6 Files nebeneinander und 24 files pro Schirm
+            
+06 08       ausgabe LD	B,08h		;8 Byte Filenamen
+4C          	LD	C,H		;H sichern, wird noch gebraucht
+CD 02 71    	CALL	aushl		;und ausgeben
+06 03       	LD	B,03h		;3 Byte Extension
+CD 02 71    	CALL	aushl		;auch ausgeben
+1D          	DEC	E        	;(Filenamen nebeneinander)
+61          	LD	H,C		;H vorsichtshalber zurück
+C0          	RET	NZ       	;alles klaro
+            
+1E 06       	LD	E,6		;wieder auf 6 stellen
+15          	DEC	D		;Zeilenzähler -1
+20 07       	JR	NZ,neuz		;neue Zeile anzeigen
+16 18       	LD	D,18h		;wieder auf 24 Zeilen stellen
+EB          	EX	DE,HL		;Zähler sichern
+CD 15 71    	CALL	warte		;auf Tastendruck warten
+EB          	EX	DE,HL		;und Zähler zurück
+3E 0D       neuz	LD	A,0dh		;CR => A
+CD 0F 71    	CALL	ausa		;und anzeigen und zurück
+61          	LD	H,C		;H jetzt entgültig zurück
+C9          	RET
+            
+            ;UP AUSHL: gibt B Zeichen lang (HL) ff aus
+            
+7E          aushl	LD	A,(HL)		;Zeichen in den	ACCU
+CD 0F 71    	CALL	ausa		;und ausgeben
+23          	INC	HL		;auf nächste Stelle
+10 F9       	DJNZ	aushl		;bis alle Angezeigt
+3E 20       	LD	A,20h    	;Trennzeichen
+CD 0F 71    	CALL	ausa		;und ausgeben
+C9          	RET
+            
+            ;UP AUSA: gib den ACCU auf dem Bildschirm oder Drucker aus
+            
+D5          ausa	PUSH	DE		;Zeilenzähler retten
+CD 33 00    	CALL	0033h		;oder 3bh für Drucker
+D1          	POP	DE
+C9          	RET
+            
+            ;UP WARTE: wartet bis CR gedrückt ist
+            
+CD 49 00    warte	CALL	0049h		;auf Tastendruck warten
+FE 0D       	CP	0dh		;war es Enter ?
+C8          	RET	Z		;zurück wenn ja
+18 F8       	JR	warte		;weiter warten

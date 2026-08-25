@@ -1,0 +1,525 @@
+            ;	Rekonstruktion und Modifikation von SYS29/SYS
+            ;
+            ;	Achtung: läuft nur noch mit dem gebankten DOS
+            ;	und geht vom Genie III s mit Mega-Banker aus!
+            ;	Für den INFO-Befehl ist nur noch der Parameter
+            ;	NP gestattet, weil sich die übrigen Optionen
+            ;	als überflüssig erwiesen haben.
+            ;
+            ;	Entwicklung des Bankers:	Helmut Bernhardt
+            ;	Programmbearbeitung:		Arnulf Sopp
+            ;
+            ;
+            ;
+            ;  neueste Änderungen : H : addieren und subtr. von INT's
+            ;			ON  : HRG-Bildschirm ein
+            ;			OFF : HRG-Bildschirm aus
+            ;		      : PARK Harddisk auf Cylinder 612 parken
+            ;
+            
+            
+            m0033	EQU	0033h	;UP Akku auf dem Bildschirm anzeigen
+            m0049	EQU	0049h	;UP auf Tastendruck warten
+            m06b5	EQU	06b5h	;UP auf 1,77 MHz schalten
+            m06be	EQU	06beh	;UP auf 7,2 MHz schalten
+            m1914	EQU	1914h	;Puffer für die Bildschirm-Zeilenlänge
+            m3641	EQU	3641h	;dto. Abstand des sichtb. vom phys. Bildschirm
+            m3649	EQU	3649h	;UP Zeichen A in den Bildschirm (HL) schreiben
+            m4015	EQU	4015h	;Tastatur-DCB	: Typ
+            m4016	EQU	4016h	;	"	: Treiberadresse
+            m401d	EQU	401dh	;Bildschirm-DCB	: Typ
+            m401e	EQU	401eh	;	"	: Treiberadresse
+            m4020	EQU	4020h	;	"	: Cursoradresse
+            m4023	EQU	4023h	;	"	: Anzahl Kopfzeilen
+            m4024	EQU	4024h	;	"	: Anzahl Fußzeilen
+            m4025	EQU	4025h	;Drucker-DCB	: Typ
+            m4026	EQU	4026h	;	"	: Treiberadresse
+            m4049	EQU	4049h	;Puffer für HIMEM
+            m4063	EQU	4063h	;UP DE in Hex-ASCII in (HL) puffern
+            m4068	EQU	4068h	;UP A	"	"	"	"
+            m4371	EQU	4371h	;Beginn der PD-Parameter für Drive 0
+            m439f	EQU	439fh	;Puffer für Anzahl Drives (S,AL=x)
+            m4467	EQU	4467h	;UP Text ab (HL) bis 03 oder 0D anzeigen
+            m4cd5	EQU	4cd5h	;UP Trennzeichen im Befehl interpretieren
+            
+            	ORG	4d00h
+            
+            ;Parametertabelle für den DISK-Befehl
+41          m4ff5	DEFM	    'A:',14h,28h,07h,28h,0ah,02h,00h,00h,14h,02h
+44          	DEFM	'DISKB:',14h,28h,07h,28h,14h,04h,00h,40h,14h,02h
+44          	DEFM	'DISKC:',18h,30h,53h,28h,12h,03h,00h,03h,18h,02h
+44          	DEFM	'DISKD:',18h,30h,53h,28h,24h,06h,00h,43h,18h,02h
+44          	DEFM	'DISKE:',14h,28h,07h,28h,0ah,02h,00h,04h,14h,02h
+44          	DEFM	'DISKF:',14h,28h,07h,28h,14h,04h,00h,44h,14h,02h
+44          	DEFM	'DISKG:',18h,30h,53h,28h,12h,03h,00h,07h,18h,02h
+44          	DEFM	'DISKH:',18h,30h,53h,28h,24h,06h,00h,41h,18h,02h
+44          	DEFM	'DISKI:',28h,50h,07h,50h,0ah,02h,00h,00h,28h,02h
+44          	DEFM	'DISKJ:',28h,50h,07h,50h,14h,04h,00h,40h,28h,04h
+44          	DEFM	'DISKK:',30h,60h,53h,50h,12h,03h,00h,03h,30h,03h
+44          	DEFM	'DISKL:',30h,60h,53h,50h,24h,06h,00h,43h,30h,06h
+44          	DEFM	'DISKM:',11h,48h,13h,28h,12h,02h,00h,05h,11h,02h
+44          	DEFM	'DISKN:',11h,90h,53h,50h,12h,02h,00h,02h,11h,02h
+44          	DEFM	'DISKO:',11h,28h,13h,28h,0ah,02h,00h,04h,11h,02h
+44          	DEFM	'DISKP:',11h,4ah,50h,52h,12h,04h,00h,03h,11h,06h
+            
+FE FF       sys29	CP	0ffh		;der richtige Requestcode?
+20 1B       	JR	NZ,errfunc	;falls nein
+0D          	DEC	C		;Hühnerleiter der SYS29-Features
+28 1F       	JR	Z,info		;falls INFO-Befehl
+0D          	DEC	C		;PORT-Befehl?
+CA 3F 4F    	JP	Z,port
+0D          	DEC	C		;DISK-Befehl?
+CA C4 4F    	JP	Z,disk
+0D          	DEC	C		; H ? addieren & subtrahieren von
+CA 12 51    	JP	Z,add		; INTEGER-Zahlen
+0D          	DEC	C		; ON ?  HRG einschalten
+CA 88 51    	JP	Z,hrgon
+0D          	DEC	C		; OFF ? HRG ausschalten
+CA 8F 51    	JP	Z,hrgoff
+0D          	DEC	C		; PARK ?? Harddisk parken
+CA 1E 52    	JP	Z,park
+3E 2A       errfunc	LD	A,2ah		;Fehlercode "unzulässige DOS-Funktion"
+C9          	RET
+3E 34       errsynt	LD	A,34h		;Fehlercode "Syntax o. Trennzeichen ..."
+B7          	OR	A		;NZ-Flag für Fehlerbedingung setzen
+C9          	RET
+            
+CD D5 4C    info	CALL	m4cd5		;Zeiger auf Zeichen nach dem Befehlswort
+28 10       	JR	Z,m4de1		;falls nur CR folgt
+7E          	LD	A,(HL)		;Zeichen noch einmal laden
+FE 4E       	CP	'N'		;INFO,NP eingegeben?
+20 F2       	JR	NZ,errsynt	;ungültige Eingabe, falls nein
+23          	INC	HL		;Zeiger auf nächstes Zeichen
+7E          	LD	A,(HL)		;nächstes Z. im INFO-Befehlsstring laden
+FE 50       	CP	'P'		;INFO,NP eingegeben?
+20 EC       	JR	NZ,errsynt	;falls ungültige Eingabe
+3E C9       	LD	A,0c9h		;Opcode RET
+32 D8 4E    	LD	(m4e82),A	;dort patchen (keine Anzeige der Ports)
+ED 5B 16 40 m4de1	LD	DE,(m4016)	;Treiberadresse Tastatur
+21 5C 50    	LD	HL,m5123	;Puffer für die Adresse in Hex
+CD 63 40    	CALL	m4063		;in den Puffer schreiben
+3A 15 40    	LD	A,(m4015)	;KB-DCB-Typ
+CD E3 4E    	CALL	m4e92		;auf Routing testen, gegf. Flag setzen
+ED 5B 1E 40 	LD	DE,(m401e)	;Treiber Bildschirm
+21 8C 50    	LD	HL,m5152	;Puffer
+CD 63 40    	CALL	m4063
+3A 1D 40    	LD	A,(m401d)	;Typ
+CD E3 4E    	CALL	m4e92		;Routing-Test
+ED 5B 26 40 	LD	DE,(m4026)	;Treiber Drucker
+21 B9 50    	LD	HL,portf3	;Puffer
+CD 63 40    	CALL	m4063
+3A 25 40    	LD	A,(m4025)	;Typ
+CD E3 4E    	CALL	m4e92		;Routing-Test
+21 D9 50    	LD	HL,m51a2	;Puffer für Infos aus Systemport 2
+01 F3 03    	LD	BC,03f3h	;B: 3 relevante Bitpaare, C: Port F3
+ED 58       	IN	E,(C)		;Systembyte 2
+16 30       	LD	D,'0'		;OR-Operand für binär -> ASCII
+7B          f3loop	LD	A,E		;evtl. rotiertes Systembyte laden
+E6 03       	AND	03h		;Bank-Bits isolieren
+B2          	OR	D		;binär -> ASCII
+77          	LD	(HL),A		;in den Puffer schreiben
+23          	INC	HL		;auf nächste Pufferstelle
+23          	INC	HL
+CB 0B       	RRC	E		;zwei weitere Systembits nach rechts
+CB 0B       	RRC	E
+10 F3       	DJNZ	f3loop		;bis zum bitteren Ende
+7B          	LD	A,E		;Bit 1: 1 X Common (0) oder 4 X C. (1)
+0F          	RRCA			;Bit 1 -> Bit 0
+E6 01       	AND	01h		;Bit 0 isolieren
+B2          	OR	D		;binär -> ASCII
+77          	LD	(HL),A		;Wert puffern
+23          	INC	HL		;nächste Stelle
+23          	INC	HL
+7B          	LD	A,E		;Bit 0: Boot-EPROM (0) oder SRAM (1)
+E6 01       	AND	01h		;Bit 0 isolieren
+B2          	OR	D		;binär -> ASCII
+77          	LD	(HL),A		;Wert puffern
+3A 23 40    	LD	A,(m4023)	;Kopfzeilen bei ##,S
+21 A7 50    	LD	HL,m5177	;Puffer
+CD 68 40    	CALL	m4068
+23          	INC	HL		;auf nächste Pufferstelle
+23          	INC	HL
+3A 24 40    	LD	A,(m4024)	;Fußzeilen
+CD 68 40    	CALL	m4068
+ED 5B 49 40 	LD	DE,(m4049)	;Himem
+21 7C 50    	LD	HL,m5142	;Puffer
+CD 63 40    	CALL	m4063
+3E 1C       	LD	A,1ch		;home cursor
+CD 33 00    	CALL	m0033		;ausgeben
+21 3A 50    	LD	HL,m5101	;Text, beginnt mit Code für 64*16 Zeichen
+3A 14 19    	LD	A,(m1914)	;Bildschirm-Zeilenlänge
+FE 40       	CP	64		;64 Zeichen/Zeile?
+38 03       	JR	C,m4e60		;falls weniger
+23          	INC	HL		;sonst ASCII 10h überspringen
+20 04       	JR	NZ,m4e64	;falls nicht genau 64 Zeichen
+AF          m4e60	XOR	A		;sonst LF löschen
+32 0C 4F    	LD	(m4ebb),A	;hier
+CD EB 4E    m4e64	CALL	m4e9a		;Bildschirm löschen, Text anzeigen
+AF          	XOR	A		;A <- 00, Zeichen ab ASCII 00
+2A 20 40    m4e68	LD	HL,(m4020)	;rel. Cursorposition
+ED 5B 41 36 	LD	DE,(m3641)	;beim G3s: Abstand des phys. Bildschirms
+19          	ADD	HL,DE		;HL <- physikalische Bildschrmadresse
+06 40       	LD	B,64		;64 Zeichen/Zeile
+CD 49 36    m4e72	CALL	m3649		;beim G3s: Byte in den Bildschirm schr.
+23          	INC	HL		;nächste Bildschirmstelle
+3C          	INC	A		;nächster ASCII-Wert
+10 F9       	DJNZ	m4e72		;bis 64 Zeichen geschrieben sind
+F5          	PUSH	AF
+CD BB 4F    	CALL	dispcr		;dann CR
+F1          	POP	AF
+20 E8       	JR	NZ,m4e68	;bis 256 Zeichen angezeigt sind
+21 F6 50    m4e82	LD	HL,m51b9	;Text "aktive Ports"
+CD EB 4E    	CALL	m4e9a		;Bildschirm löschen, Text anzeigen
+CD 7E 4F    	CALL	m4ed5		;die Portbelegung anzeigen
+AF          	XOR	A
+C9          	RET
+CB 7F       m4e92	BIT	7,A		;Routing für dieses Device aktiv?
+C0          	RET	NZ		;falls ja
+23          	INC	HL		;übernächste Textstelle
+23          	INC	HL		;wo "@" für den Text "umgeleitet" steht
+36 8D       	LD	(HL),8dh	;Flag für 13mal Blank setzen (13+128)
+C9          	RET
+7E          m4e9a	LD	A,(HL)		;Byte aus Text usw.
+06 01       	LD	B,01h		;Zähler 1 bei normalen Zeichen
+CB 7F       	BIT	7,A		;Space-Compression?
+28 04       	JR	Z,m4ea5		;falls nein
+E6 7F       	AND	7fh		;Bit 7 löschen
+47          	LD	B,A		;Zähler für die Blanks
+23          	INC	HL		;nächste Stelle des Textes
+7E          m4ea5	LD	A,(HL)		;nächstes Byte
+FE 03       	CP	03h		;Textende?
+C8          	RET	Z		;falls ja
+FE 40       	CP	'@'		;evtl. "umgeleitet" anzeigen?
+20 09       	JR	NZ,m4eb6	;falls nein
+E5          	PUSH	HL
+21 2D 50    	LD	HL,m50f4	;Text "(umgeleitet)"
+CD 67 44    	CALL	m4467		;anzeigen
+E1          	POP	HL
+AF          	XOR	A
+FE 0B       m4eb6	CP	0bh		;bedingter LF? (je nach Videoformat)
+20 02       	JR	NZ,m4ebc	;falls nein
+3E 0A       	LD	A,0ah		;LF daraus machen (oder NUL bei < 64 Z.)
+            m4ebb	EQU	$-1
+F5          m4ebc	PUSH	AF
+CD 33 00    	CALL	m0033		;Byte anzeigen
+F1          	POP	AF
+FE 0D       	CP	0dh		;war es CR?
+C8          	RET	Z		;falls ja
+10 DF       	DJNZ	m4ea5		;bis Zeichen Bmal angezeigt (bei Bit 7)
+23          	INC	HL		;nächste Textstelle
+18 D1       	JR	m4e9a		;weiter anzeigen
+            
+CD 27 4F    gethex	CALL	getciph		;1. Hexziffer der Eingabe laden
+07          	RLCA			;unteres ins obere Nibble rotieren
+07          	RLCA
+07          	RLCA
+07          	RLCA
+47          	LD	B,A		;16erstelle retten
+CD 27 4F    	CALL	getciph		;Einerstelle einlesen
+B0          	OR	B		;A <- Binärwert der Hexeingabe
+C9          	RET
+7E          getciph	LD	A,(HL)		;Ziffer einlesen
+23          	INC	HL		;auf nächste Stelle
+D6 30       	SUB	'0'		;ASCII -> binär
+38 0C       	JR	C,errparm	;falls unzuläss. Wert (keine Ziffer)
+FE 0A       	CP	09h+1		;größer als 9?
+D8          	RET	C		;fertig, falls 0-9
+D6 07       	SUB	07h		;Hexziffern angleichen
+FE 0A       	CP	0ah		;mindestens 10?
+38 03       	JR	C,errparm	;falls keine Hexziffer
+FE 10       	CP	0fh+1		;größer als F?
+D8          	RET	C		;fertig, falls nein
+F1          errparm	POP	AF		;CALL-Ebene löschen
+F1          	POP	AF		;(2. Ebene)
+3E 2F       	LD	A,2fh		;Fehlercode "schlechte Parameter"
+B7          	OR	A		;NZ-Flag setzen (Fehlerbedingung)
+C9          	RET
+CD D5 4C    port	CALL	m4cd5		;auf nächsten Parameter des Befehls
+28 34       	JR	Z,allport	;falls nur PORT eingegeben wurde
+CD 1A 4F    	CALL	gethex		;Portadresse hinter dem Befehlswort lesen
+4F          	LD	C,A		;C <- Portadresse
+CD D5 4C    	CALL	m4cd5		;nächster Parameter
+20 1B       	JR	NZ,getoutp	;falls Daten folgen
+79          	LD	A,C		;Portadresse
+21 0B 51    	LD	HL,m51ce	;Puffer dafür
+E5          	PUSH	HL		;brauchen wir noch
+CD 68 40    	CALL	m4068		;in Hex in den Puffer schreiben
+23          	INC	HL		;auf den Puffer für den Input stellen
+ED 78       	IN	A,(C)		;Input einholen
+CD 68 40    	CALL	m4068		;in den Puffer schreiben
+E1          	POP	HL		;Pufferanfang
+CD 67 44    	CALL	m4467		;anzeigen
+CD BB 4F    	CALL	dispcr		;CR ausgeben
+AF          	XOR	A		;Fehlerflag: kein Fehler
+C9          	RET			;Ende
+CD D5 4C    nextpar	CALL	m4cd5		;Befehlszeiger auf nächstes Datum stellen
+C8          	RET	Z		;Ende, falls keins mehr folgt
+E5          getoutp	PUSH	HL		;Befehlszeiger retten
+CD 1A 4F    	CALL	gethex		;Output für den Port einlesen
+CD B5 06    	CALL	m06b5		;auf 1,77 MHz schalten
+ED 79       	OUT	(C),A		;und Datum ausgeben
+CD BE 06    	CALL	m06be		;auf 7,2 MHz schalten
+E1          	POP	HL		;Befehlszeiger
+23          	INC	HL		;auf nächstes Trennzeichen stellen
+18 EC       	JR	nextpar		;Befehlsstring auf weitere Outputs prüfen
+3A 14 19    allport	LD	A,(1914h)	;Zeichen/Zeile
+32 A3 4F    	LD	(m4efa),A	;dort patchen
+0E 00       m4ed5	LD	C,00h		;Inputs ab Port 00 lesen
+18 03       	JR	m4edc
+0C          m4ed9	INC	C		;weiter mit dem nächsten Port
+28 31       	JR	Z,m4f0f		;falls alle 256 Ports bearbeitet sind
+CD B5 06    m4edc	CALL	m06b5		;auf 1,77 MHz schalten
+ED 78       	IN	A,(C)		;Input eines Ports holen
+CD BE 06    	CALL	m06be		;auf 7,2 MHz schalten
+FE FF       	CP	0ffh		;ist der Port unbelegt oder inaktiv?
+28 F1       	JR	Z,m4ed9		;falls ja
+21 0E 51    	LD	HL,m51d1	;Puffer für Hex-Angabe des Inputs
+CD 68 40    	CALL	m4068		;Input in den Puffer
+21 0B 51    	LD	HL,m51ce	;ASCII-String für Port und Input
+79          	LD	A,C		;Portadresse
+CD 68 40    	CALL	m4068		;in Hex in den Puffer schreiben
+3E 00       	LD	A,00h		;belegter Platz in der Zeile
+            m4ef6	EQU	$-1		;ändert sich
+C6 07       	ADD	A,07h		;eine Portangabe belegt 7 Stellen
+FE 40       	CP	64		;ist die Zeile schon voll?
+            m4efa	EQU	$-1		;je nach Format
+38 05       	JR	C,m4f04		;falls noch nicht
+CD BB 4F    	CALL	dispcr		;sonst CR ausgeben
+3E 07       	LD	A,07h		;7 als Ausgangswert der Zeilenbelegung
+32 9F 4F    m4f04	LD	(m4ef6),A	;neu patchen
+21 0A 51    	LD	HL,m51cd	;ASCII-String des Ports und des Inputs
+CD 67 44    	CALL	m4467		;anzeigen
+18 CC       	JR	m4ed9		;weiter mit dem nächsten Port
+3A 9F 4F    m4f0f	LD	A,(m4ef6)	;belegter Anteil der Zeile
+B7          	OR	A		;Zeile frei?
+C8          	RET	Z		;falls ja
+3E 0D       dispcr	LD	A,0dh		;sonst CR ausgeben
+C3 33 00    	JP	m0033
+3E 20       errdriv	LD	A,20h		;Fehlercode "unzul. o. fehl. Laufwerk"
+B7          	OR	A
+C9          	RET
+3A 9F 43    disk	LD	A,(m439f)	;Anzahl Drives
+47          	LD	B,A		;merken für später
+7E          	LD	A,(HL)		;Parameter des DISK-Befehls
+D6 30       	SUB	'0'		;ASCII -> binär
+DA 1E 4E    	JP	C,errsynt	;falls keine zulässige Ziffer
+FE 0A       	CP	0ah		;Zeichen größer als "9"?
+D2 1E 4E    	JP	NC,errsynt	;falls falsche Eingabe
+B8          	CP	B		;Laufwerk-Nr. zu hoch?
+30 EA       	JR	NC,errdriv	;falls unzulässiges Laufwerk
+F5          	PUSH	AF
+23          	INC	HL		;nächste Stelle im Befehlsstring
+7E          	LD	A,(HL)
+FE 3D       	CP	'='
+20 17       	JR	NZ,m4f58	;falls nicht korrekte Syntax mit "="
+23          	INC	HL		;nächste Stelle im Befehlsstring
+4E          	LD	C,(HL)		;merken
+23          	INC	HL		;nächste Stelle
+CD D5 4C    	CALL	m4cd5		;nächstes Trennzeichen überspringen
+20 0F       	JR	NZ,m4f58	;Fehler, falls jetzt nicht CR kommt
+21 00 4D    	LD	HL,m4ff5	;das "A" von DISKA
+06 10       	LD	B,10h		;16 Codes
+7E          m4f4e	LD	A,(HL)		;einen laden
+B9          	CP	C		;den richtigen DISK-String gefunden?
+28 0A       	JR	Z,m4f5c		;falls ja
+11 10 00    	LD	DE,0010h	;sonst Summand 16 für nächsten String
+19          	ADD	HL,DE		;Zeiger einen weiter
+10 F6       	DJNZ	m4f4e		;bis 16 Strings bearbeitet sind
+F1          m4f58	POP	AF		;Stack bereinigen
+C3 1E 4E    	JP	errsynt		;mehr als 16 gibt es nicht
+F1          m4f5c	POP	AF		;Laufwerk-Nr.
+4F          	LD	C,A		;merken
+87          	ADD	A,A		;*2
+87          	ADD	A,A		;*4
+81          	ADD	A,C		;*5
+87          	ADD	A,A		;*10, 10 Parameter pro Drive
+DD E5       	PUSH	IX
+FD E5       	PUSH	IY
+DD 21 71 43 	LD	IX,m4371	;PD-Parameter für Drive 0
+4F          	LD	C,A		;Drive-Nr. *10
+06 00       	LD	B,00h		;BC <- Drive-Nr. *10
+DD 09       	ADD	IX,BC		;IX auf richtiges Drive stellen
+23          	INC	HL		;auf erstes Byte der Paramtertabelle
+23          	INC	HL
+E5          	PUSH	HL
+FD E1       	POP	IY		;nach IY (Zeiger auf Parameterstring)
+FD 7E 02    	LD	A,(IY+02h)	;TI im Befehl
+E6 FC       	AND	0fch		;alles ohne TSR-Bits
+4F          	LD	C,A		;merken
+DD 7E 02    	LD	A,(IX+02h)	;TI im DOS
+E6 03       	AND	03h		;nur TSR-Bits
+B1          	OR	C		;altes TI mit neuer TSR verknüpfen
+FD 77 02    	LD	(IY+02h),A	;in die Tabelle
+01 0A 00    	LD	BC,000ah	;
+DD E5       	PUSH	IX		;DOS-PD-Zeiger
+D1          	POP	DE		;nach DE
+ED B0       	LDIR			;neue Tabelle ins DOS übertragen
+FD E1       	POP	IY
+DD E1       	POP	IX
+AF          	XOR	A
+C9          	RET
+            
+            ;	diverse Texte und Puffer:
+            ;
+            ;	Codes > 80h wiederholen das nächste Zeichen (x-128)mal
+            ;
+            ;	"@" steht für "(umgeleitet)" bei Routing
+            ;
+            ;	Anzeige für Port F3 (Systembyte 2, Label portf3):
+            ;	"Bank":		Hauptspeicher-Block	(Bits 0, 1)
+            ;	"Vid.":		Video-RAM-Block		(Bits 2, 3)
+            ;	"Grph.":	Graphik-Block		(Bits 4, 5)
+            ;	"C":		Common-Definintion:
+            ;			Bit 7	= 0:	1X Common für 1 MB
+            ;				= 1:	4X Common für je 256 kB
+            ;	"E&R":		Baustein in 0000-2FFF bei Port FA, Bit 2 = 0:
+            ;			Bit 6	= 0:	Boot-EPROM selektiert
+            ;				= 1:	parall. SRAM	"
+            
+28          m50f4	DEFM	'(umgeleitet)',03h	;falls Routing eines Device
+10          m5101	DEFM	10h,1ch,1fh		;16*64 Zeichen (bedingt), CLS
+98          	DEFM	98h,'- GENIE-DOS INFO ',98h,'-',0bh,'Tastatur: '
+46          m5123	DEFM	'FFFFh @  Ende User-RAM (HIMEM): '	;@ für "(umgel.)"
+46          m5142	DEFM	'FFFFh',0ah,'Monitor:  '
+46          m5152	DEFM	'FFFFh @  '
+4B          m515b	DEFM	'Kopf-/Fußzeilen:',87h,' '
+30          m5177	DEFM	'00h/00h',0ah,'Drucker:  '
+46          portf3	DEFM	'FFFFh @  Bank/Vid./Grph./C/E&R: '
+30          m51a2	DEFM	'0/0/0/0/0',0ah,99h,'- ZEICHENSATZ ',9ah,'-',0bh,03h
+99          m51b9	DEFM	99h,'- AKTIVE PORTS ',99h,'-',0bh,03h
+20          m51cd	DEFM	' '
+30          m51ce	DEFM	'00='
+30          m51d1	DEFM	'00 ',03h
+            
+            ;
+            ;
+            ;
+            ;
+            ;
+            ;		Eingefügt am 29.02.92
+            ;	ADDIEREN VON ZWEI HEXZAHLEN
+            ;
+            ;  mit Hilfe des DOS-Unterprogramms bei 3B68h
+            ;
+            ;
+            ;
+            ;   die dezimalausgabe ist von zeus abgekuckt und läuft
+            ;   über eine basic-unterprogramm
+            ;
+            ;
+            mmein	EQU	06abh
+            mmaus	EQU	06a0h
+            conver	EQU	3b68h
+            gibaus	EQU	4467h
+            hexde	EQU	4063h
+            ;
+7E          add	LD	A,(HL)		; wenn zunächst ein '@' eingegeben wird
+FE 40       	CP	'@'		; dann soll ein weitere Zahl zu dem
+23          	INC	HL
+28 0E       	JR	Z,wei2		; vorhererrechneten addiert oder subtr.
+2B          	DEC	HL		; ist nötig den Zeiger zu verändern.
+CD A0 06    	CALL	mmaus
+CD 68 3B    	CALL	conver
+CD AB 06    	CALL	mmein		; das ergebnis ist jetzt in DE
+ED 53 5E 43 	LD	(ergeb),DE	; abspeichern
+7E          wei2	LD	A,(HL)		; kommt jetzt ein '+' ??
+FE 0D       	CP	0dh		; enter heißt nur eine Zahl
+28 29       	JR	Z,einzah
+FE 2D       	CP	'-'		; soll subtrahiert werden ?
+20 0C       	JR	NZ,wei1		; falls nicht
+E5          	PUSH	HL		; befehlszeiger retten !!
+21 4F 51    	LD	HL,opera	; operationscodestelle
+36 ED       	LD	(HL),0edh	; opcode für SBC  HL,DE
+23          	INC	HL
+36 52       	LD	(HL),52h
+E1          	POP	HL		; befehlszeiger zurück
+18 07       	JR	goon
+FE 2B       wei1	CP	'+'
+3E 2F       	LD	A,2fh
+C2 1E 4E    	JP	NZ,errsynt	; sonst fehler
+CD A0 06    goon	CALL	mmaus
+23          	INC	HL
+CD 68 3B    	CALL	conver		; HL zeigt auf zweite zahl
+CD AB 06    	CALL	mmein
+2A 5E 43    	LD	HL,(ergeb)	; HL = erste Zahl
+19          opera	ADD	HL,DE		; addition
+00          	NOP			; weil SBC ein zweibytebefehl ist
+22 5E 43    	LD	(ergeb),HL	; und speichern
+2A 5E 43    einzah	LD	HL,(ergeb)
+CD 76 51    	CALL	dezhl
+21 6F 51    	LD	HL,hexbuf
+ED 5B 5E 43 	LD	DE,(ergeb)
+CD 63 40    	CALL	hexde
+21 6B 51    	LD	HL,hexbuf1
+CD 67 44    	CALL	gibaus
+C9          	RET			; normaler Abgang bei SYS-Files
+64          hexbuf1	DEFM	'd : '
+66          hexbuf	DEFM	'ffffh ',0dh
+            ergeb	EQU	435eh
+            ;
+            ;	HL als Integer auf den Bildschirm
+            ;
+22 21 41    dezhl	LD	(4121h),HL	;Integer-X-Register
+21 30 41    	LD	HL,4130h	;Buffer
+CD 2F 13    	CALL	132fh		;Integer auf Screen
+36 03       	LD	(HL),03h	;statt 0: enter ans Ende des Ziffernstr.
+21 30 41    	LD	HL,4130h
+CD 67 44    	CALL	gibaus
+C9          	RET
+            
+            ;
+            ;
+            ;
+            ;	ON
+            ;	SCHALTET DIE HRG SEITE 0 EIN
+            ;	FUER GENIE IIIs
+DB FA       hrgon	IN	A,(0fah)	;systembyte 1
+CB CF       	SET	1,A	;grafik an/aus-bit
+D3 FA       	OUT	(0fah),A	;raus damit
+C9          	RET     	; normaler Ausgang für DOS
+            ;
+            ;
+            
+            ;	O F F
+            ;	schaltet die grafik aus
+            ;	fuer Genie IIIs
+DB FA       hrgoff	IN	A,(0fah)
+CB 8F       	RES  	1,A
+D3 FA       	OUT	(0fah),A
+C9          	RET
+            ;
+            ;	PARK parkt die Köpfe der harddisk auf Cylinderposition
+            ;	612, um die Köpfe von der Platte in Sicherheit zu bringen
+            ; 	nach diversen Programmen zusammengestückelt, u.a. c't'
+            ;	sowie H.Bernhardt und A. Magnus
+            ;
+            m0503	EQU	0503h
+            m050b	EQU	050bh
+            m402d	EQU	402dh
+D3 42       m5200	OUT	(42h),A
+CD 12 52    	CALL	m5212
+79          	LD	A,C
+D3 40       	OUT	(40h),A
+0E 40       	LD	C,'@'
+CD 12 52    m520a	CALL	m5212
+ED A3       	OUTI
+20 F9       	JR	NZ,m520a
+C9          	RET
+DB 41       m5212	IN	A,(41h)
+CB 47       	BIT	0,A
+28 FA       	JR	Z,m5212
+C9          	RET
+00          m5247	NOP
+80          	ADD	A,B
+60          	LD	H,B
+00          	NOP
+02          	LD	(BC),A
+21 2E 52    park	LD	HL,text
+CD 67 44    	CALL	m4467
+21 19 52    	LD	HL,m5247
+01 0B 05    	LD	BC,m050b
+CD 00 52    	CALL	m5200
+C9          	RET		; Ausstieg bei SYS-Files
+48          text	DEFM	'HD parked on Cyl. 612.',0dh
+            mffff	EQU	0ffffh
+            	END	sys29

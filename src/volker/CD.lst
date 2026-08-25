@@ -1,0 +1,99 @@
+            ;		Change Directory
+            ;
+            ;
+            ;	Setzt Defaultlaufwerk nach Namens eingabe
+            ;
+            ;	RAMDISK		- LW# 2
+            ;	DOS		- LW# 5
+            ;	SOURCES		- LW# 6
+            ;	WORKBENC	- LW# 7
+            ;	DATEN		- LW# 8
+            ;	SONSTIGES	- LW# 9
+            ;	DISK0		- LW# 0
+            ;	DISK1		- LW# 1
+            ;
+            ;
+            dosrdy	EQU	402dh
+            doserr	EQU	4409h
+            gibaus	EQU	4467h
+            dirlw	EQU	43a0h
+            openlw	EQU	43a1h
+            verglei	EQU	4cc5h
+            
+            	ORG	3000h		; sollte platz sein
+E5          start	PUSH	HL		; HL retten
+D1          	POP	DE		; HL -> DE
+01 7B 30    	LD	BC,text0	; 'DISK0',00
+CD C5 4C    	CALL	verglei
+28 4C       	JR	Z,eintrag	; wenn text gleich, weiter
+D5          	PUSH	DE
+E1          	POP	HL
+01 8E 30    	LD	BC,text1        ; 'DISK1',00
+CD C5 4C    	CALL	verglei
+28 42       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 A1 30    	LD	BC,text2	; 'RAMDISK',00
+CD C5 4C    	CALL	verglei
+28 38       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 B5 30    	LD	BC,text5	; 'DOS',00
+CD C5 4C    	CALL	verglei		;
+28 2E       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 CA 30    	LD	BC,text6	; 'SOURCES',00
+CD C5 4C    	CALL	verglei
+28 24       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 DE 30    	LD	BC,text7	; 'WORKBENC',00
+CD C5 4C    	CALL	verglei
+28 1A       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 F4 30    	LD	BC,text8	; 'DATEN',00
+CD C5 4C    	CALL	verglei
+28 10       	JR	Z,eintrag
+D5          	PUSH	DE
+E1          	POP	HL
+01 06 31    	LD	BC,text9	; 'SONSTI',00
+CD C5 4C    	CALL	verglei
+28 06       	JR	Z,eintrag
+3E 20       abgang	LD	A,20h		; 'unzulässiges od. Fehlendes LW'
+B7          	OR	A
+C3 09 44    	JP	doserr
+0A          eintrag	LD	A,(BC)
+32 A0 43    	LD	(dirlw),A	; lwnummern eintragen
+32 A1 43    	LD	(openlw),A
+            ;
+            ; ab hier soll in bank 0 der name gepatcht werden, dessen laufwerks
+            ; nummer gewählt wurde.
+DB F9       	IN	A,(0f9h)	;sysport 0 ist der Bankingport
+CB 87       	RES	0,A		; common unten
+CB B7       	RES	6,A		; bank 0 anwählen
+CB BF       	RES	7,A		;  dito
+F3          	DI			; jetzt wirds heikel
+D3 F9       	OUT	(0f9h),A	; diese Konfiguration ausgeben
+03          	INC	BC		; bc muß um 5 erniedrigt werden
+            	     		; um auf den Anfang von
+            	 	  		; text(x)	zu zeigen
+60          	LD	H,B		; wegen LDIR, source ist HL
+69          	LD	L,C		; nicht wahr
+11 00 00    	LD	DE,8fa4h	; ist in dem gebankten SYS1 der
+01 00 00    	LD	BC,0010h	; Bank 0 die adresse des DOS-Ready
+ED B0       	LDIR			; strings, wird so gepatcht
+3E 40       	LD	A,40h		; normale konfiguration von port
+D3 F9       	OUT	(0f9h),A	; f9
+FB          	EI
+C3 2D 40    	JP	dosrdy
+00          text0	DEFM	'DI0',00,00,':0Disk_0 >',1eh,03
+00          text1	DEFM	'DI1',00,01,':1Disk_1 >',1eh,03
+00          text2	DEFM	'RAM',00,02h,':2Ramdisk >',1eh,03
+00          text5	DEFM	'DOS',00,05,':5CalvaDOS >',1eh,03
+00          text6	DEFM	'SOU',00,06,':6Sources >',1eh,03
+00          text7	DEFM	'WOR',00,07,':7Workbench >',1eh,03
+00          text8	DEFM	'DAT',00,08,':8Daten >',1eh,03
+00          text9	DEFM	'SON',00,09,':9Sonstiges >',1eh,03
+            	END	start
