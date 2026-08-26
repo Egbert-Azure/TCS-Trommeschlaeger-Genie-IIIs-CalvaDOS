@@ -4,6 +4,21 @@ tools/trsextract
 # Ignore build output
 build/
 
+# Ad hoc pasmo assemble output (Z80: Assemble with Pasmo task).
+# tools/hdtest.sym and tools/hdwtest.sym, and src/patchdisk/PATCH.CMD, are
+# deliberately tracked and stay tracked regardless of this pattern.
+*.cmd
+*.sym
+
+# Scratch disks/logs from run-stock-session.sh
+/work/
+
+# Local-only developer notes, not meant to be published to GitHub
+/docs/guides/
+
+# macOS Finder metadata
+.DS_Store
+
 # Ignore temporary files
 *.tmp
 *.bak

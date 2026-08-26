@@ -1,18 +1,94 @@
 {
     "version": "2.0.0",
+    "inputs": [
+        {
+            "id": "orgAddress",
+            "type": "promptString",
+            "description": "Load/origin address in hex, no 0x prefix (e.g. 4d00 for the GDOS SYS overlay range, 0 for a ROM image)",
+            "default": "0"
+        }
+    ],
     "tasks": [
         {
+            "label": "Z80: Assemble with Pasmo",
+            "detail": "Assemble the current .asm with pasmo -> .cmd + .sym (symbol table) next to the source.",
+            "type": "shell",
+            "command": "pasmo",
+            "args": [
+                "-d",
+                "${file}",
+                "${fileDirname}/${fileBasenameNoExtension}.cmd",
+                "${fileDirname}/${fileBasenameNoExtension}.sym"
+            ],
+            "options": {
+                "cwd": "${fileDirname}"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": {
+                "owner": "pasmo",
+                "fileLocation": [
+                    "absolute"
+                ],
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "severity": 3,
+                    "message": 4
+                }
+            }
+        },
+
+        {
+            "label": "Z80: Build boot sector (bootsec.bin)",
+            "detail": "src/hd-driver/omti/build-bootsec.sh: assembles bootsec.asm + bootrd.asm and concatenates the two 256-byte halves.",
+            "type": "shell",
+            "command": "./build-bootsec.sh",
+            "options": {
+                "cwd": "${workspaceFolder}/src/hd-driver/omti"
+            },
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": {
+                "owner": "pasmo",
+                "fileLocation": [
+                    "absolute"
+                ],
+                "pattern": {
+                    "regexp": "^(.*):(\\d+):\\s+(warning|error):\\s+(.*)$",
+                    "file": 1,
+                    "line": 2,
+                    "severity": 3,
+                    "message": 4
+                }
+            }
+        },
+
+        {
             "label": "Z80: Disassemble current file",
+            "detail": "z80dasm the current binary -> a new *.disasm.asm next to it. Never overwrites the input, so it is safe to run on a .bin or an already-annotated .asm alike.",
             "type": "shell",
             "command": "z80dasm",
             "args": [
-                "-g", "0x4d00",
+                "-g", "0x${input:orgAddress}",
                 "-l",
                 "-a",
                 "-t",
                 "${file}",
                 "-o",
-                "${fileDirname}/${fileBasenameNoExtension}.asm"
+                "${fileDirname}/${fileBasenameNoExtension}.disasm.asm"
             ],
             "presentation": {
                 "reveal": "always",
@@ -22,9 +98,49 @@
         },
 
         {
-            "label": "GDOS: Boot stock GDOS",
+            "label": "GDOS: Verify disassembly vs DMK",
+            "detail": "tools/verify-disasm.py: checks every byte column in src/GDOS-2.4-SYS-files/*-sys-disassembly.asm against DMK/G3S-GDOS24.DMK. Currently fails: it shells out to tools/dmk.py and tools/trsload.py, neither of which is in this repo.",
+            "type": "shell",
+            "command": "python3",
+            "args": ["tools/verify-disasm.py"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+
+        {
+            "label": "GDOS: Check address-name consistency",
+            "detail": "tools/gdos-names.py: cross-checks docs/reference/gdos-2.4-addresses.md against the driver source and listings.",
+            "type": "shell",
+            "command": "python3",
+            "args": ["tools/gdos-names.py"],
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+            "group": "test",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "clear": true
+            },
+            "problemMatcher": []
+        },
+
+        {
+            "label": "GDOS: Debug session (zbx) — stock GDOS 2.4 + OMTI HD",
+            "detail": "run-stock-session.sh: boots stock GDOS 2.4 from floppy with the OMTI hard disk attached, under sdl2trs's built-in zbx debugger (breakpoints, registers, memory, stepping). Sets the forced-floppy latch, then hands the terminal to you.",
             "type": "shell",
             "command": "./run-stock-session.sh",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated"
@@ -33,12 +149,10 @@
         },
 
         {
-            "label": "GDOS: Boot CalvaDOS OMTI HD",
+            "label": "GDOS: Boot CalvaDOS (OMTI HD)",
+            "detail": "run-5-calvados-omti-hd.command: Sopp's 1986 EPROM, OMTI controller, boots CalvaDOS straight from the hard disk. No debugger attached.",
             "type": "shell",
-            "command": "/bin/bash",
-            "args": [
-                "${workspaceFolder}/run-5-calvaDOS-omti-hd.command"
-            ],
+            "command": "${workspaceFolder}/run-5-calvados-omti-hd.command",
             "options": {
                 "cwd": "${workspaceFolder}"
             },

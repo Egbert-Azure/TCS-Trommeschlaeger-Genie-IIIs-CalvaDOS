@@ -55,7 +55,7 @@ DMK="${DMK:-$REPO/DMK/G3S-GDOS24.DMK}"
 # heds/secs and omti.asm's hdheds/hdsecs no longer match it. Kept below,
 # commented out, for reference only -- do not attach it.
 # IMAGE="${ARGS[0]:-$REPO/HDV/calvados-drive5-populated-20260813.hdv}"
-IMAGE="${ARGS[0]:-$REPO/HDV/calvados-3fixes-20260819.hdv}"
+IMAGE="${ARGS[0]:-$REPO/HDV/calvados-20260824.hdv}"
 
 WORK="${WORK:-$REPO/work/stock-session}"
 mkdir -p "$WORK"
