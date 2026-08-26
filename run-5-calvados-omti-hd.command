@@ -1,1 +1,0 @@
-/Users/egbert/Documents/GitHub/sdltrs-MultiHDC/run-5-calvados-omti-hd.command

@@ -2494,7 +2494,7 @@
 4D60  22 6e 43  ld (0436eh),hl
 ; === The cold start's own drive-count distribution. One configuration byte,
 ; === 42A0h, goes to two places: 439Fh (dndrv, "Anzahl Drives" -- see
-; === src/volker/SYS29.asm's m439f, and SYS29/SYS's own ceiling check at
+; === docs/artefacts/volker/SYS29.asm's m439f, and SYS29/SYS's own ceiling check at
 ; === 4F23h) and 477Ah (the CP nn operand inside DRVSEL at 4779h). Right for
 ; === stock GDOS, where every drive is a floppy and the two numbers are the
 ; === same; wrong for this port, which serves drives up to 9. PATCHED as one

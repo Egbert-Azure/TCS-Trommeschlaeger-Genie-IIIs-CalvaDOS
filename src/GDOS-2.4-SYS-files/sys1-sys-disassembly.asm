@@ -905,7 +905,7 @@ m51c8   LD      C,L                     ;51c8
 ; This build: "CalvaDOS      "   same 14 bytes, padded
 ; Reason:     Cosmetic. "Mini-" prefix at 51C8h unchanged ->
 ;             "Mini-CalvaDOS". Same footprint kept: position
-;             matters to the CD command (src/volker/SYS1.asm), and
+;             matters to the CD command (docs/artefacts/volker/SYS1.asm), and
 ;             the string's own EOF marker follows immediately.
 ; ------------------------------------------------------------
 m51cd   LD      B,E                     ;51cd

@@ -1,12 +1,16 @@
-# Ignore the symlink to the external tool
+# Ignore symlinks to external tools/checkouts -- these resolve by absolute
+# path on this machine only; see docs/guides/dev-environment.md for the
+# one-line `ln -s` setup each of them needs on a fresh clone.
 tools/trsextract
+/sdl2trs
+/run-5-calvados-omti-hd.command
 
 # Ignore build output
 build/
 
 # Ad hoc pasmo assemble output (Z80: Assemble with Pasmo task).
-# tools/hdtest.sym and tools/hdwtest.sym, and src/patchdisk/PATCH.CMD, are
-# deliberately tracked and stay tracked regardless of this pattern.
+# src/hd-driver/omti/hdtest.sym and hdwtest.sym, and src/patchdisk/PATCH.CMD,
+# are deliberately tracked and stay tracked regardless of this pattern.
 *.cmd
 *.sym
 

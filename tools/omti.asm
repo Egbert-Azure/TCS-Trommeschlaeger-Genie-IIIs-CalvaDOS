@@ -1,1 +1,0 @@
-../src/hd-driver/omti/omti.asm
