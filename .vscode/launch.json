@@ -1,0 +1,26 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "zbx",
+            "request": "launch",
+            "name": "zbx: boot ROM only",
+            "sdl2trs": "${workspaceFolder}/sdl2trs",
+            "rom": "${workspaceFolder}/ROM/g3s_hd-omti_bootrom_2764.bin",
+            "floppy": "",
+            "hard0": "",
+            "stopOnEntry": true
+        },
+        {
+            "type": "zbx",
+            "request": "launch",
+            "name": "zbx: CalvaDOS (OMTI HD)",
+            "sdl2trs": "${workspaceFolder}/sdl2trs",
+            "rom": "${workspaceFolder}/ROM/g3s_hd-omti_bootrom_2764.bin",
+            "floppy": "",
+            "hard0": "${workspaceFolder}/HDV/calvados-20260824.hdv",
+            "omtisecsize": 512,
+            "stopOnEntry": true
+        }
+    ]
+}

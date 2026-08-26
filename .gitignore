@@ -20,6 +20,10 @@ build/
 # Local-only developer notes, not meant to be published to GitHub
 /docs/guides/
 
+# Python bytecode cache (tools/*.py, tools/zbx-dap/adapter.py)
+__pycache__/
+*.pyc
+
 # macOS Finder metadata
 .DS_Store
 
