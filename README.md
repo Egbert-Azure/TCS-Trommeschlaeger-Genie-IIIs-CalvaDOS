@@ -91,6 +91,7 @@ The original CalvaDOS source code has not been found. What exists here is theref
 The aim is not to pretend that the missing original can simply be recreated from memory.
 
 The aim is to understand it well enough to make it live again.
+
 ## Tools
 
 I'm a bit tired to explain myself but here we are again. The first tool is the unglamorous one: my own head. Experience, knowledge, and the patience to read the same page of a manual five times until it finally makes sense.
@@ -99,18 +100,12 @@ That is the whole point of this exercise. I want to understand the past again. I
 
 After that, in rough order of how much I lean on them:
 
-> **Visual Studio Code**
-> I use it heavily and make use of much of what it offers — fast typing of Z80 source, mnemonic and `EQU` tables, annotations, and long working lists that keep an investigation on track over weeks. I have also built a local Z80/GDOS environment around it: snippets, IntelliSense/completion data, custom dictionaries, syntax and grammar definitions, and editor configuration that incorporates my own reference tables and working notes. This means that much of the information I need while disassembling and modifying GDOS is already available in the editor, where I can work with it directly rather than reconstructing it from scratch.
->
-> **z80dasm** for disassembly and **pasmo** for assembling. Both do exactly what they say and nothing more, which is what I want from a tool whose output I have to trust byte for byte.
->
-> **sdltrs-MultiHDC** — sdltrs extended with the OMTI support this work needed — and **zbx** when I need to see what the Z80 is actually doing rather than what I assume it is doing.
->
-> **The contemporary documentation**
-> Hartmut Grosser's *Das DOS-Buch*, Uwe Böker's *Technische Beschreibung zum GENIE IIIs*, and the TCS addendum to the G-DOS 2.4 manual. When a document from the period and a conclusion of mine disagree, the document wins until I can prove otherwise.
->
-> Everything else is hex dumps, byte diffs, checksums and a lot of notes.
-
+* **Visual Studio Code** — heavy daily driver: fast Z80 source, mnemonic/`EQU` tables, annotations, long working lists that keep an investigation on track over weeks. I've built a local Z80/GDOS dev environment around it — snippets, IntelliSense, custom dictionaries, syntax/grammar definitions, editor config with my own reference tables baked in.
+* **zbx-dap** — a debug adapter I wrote that puts zbx (below) inside VS Code: step, breakpoints, registers, live disassembly, memory reads, no separate terminal.
+* **z80dasm** / **pasmo** — disassembly and assembly. Both do exactly what they say and nothing more, which is what I want from a tool whose output I have to trust byte for byte.
+* **sdltrs-MultiHDC** — sdltrs extended with the OMTI support this work needed — and **zbx**, its built-in debugger, for seeing what the Z80 is actually doing rather than what I assume it's doing.
+* **The contemporary documentation** — Hartmut Grosser's *Das DOS-Buch*, Uwe Böker's *Technische Beschreibung zum GENIE IIIs*, and the TCS addendum to the G-DOS 2.4 manual. When a document from the period and a conclusion of mine disagree, the document wins until I can prove otherwise.
+* Everything else: hex dumps, byte diffs, checksums, and a lot of notes.
 
 ## Repository
 
