@@ -73,9 +73,12 @@ The CalvaDOS that existed on the surviving machines was the result of several ge
 | C     | A. Magnus and Volker Dose, ~1990                            | unknown    | ~20 MB Tandon | 5, 6, 7, 8, 9 |
 | D     | E. Schroeer, ~1992                                          | unknown    | later ST-225  | 5, 6, ...     |
 
-**Stage B is what this repository reconstructs.**
+**Stage B is what this repository reconstructs**, tagged `stage-b` so that
+exact state stays recoverable once later stages start changing `src/` and
+the HDV images. Raw material for the next stages, where it's already
+surfaced, lives in [`history/`](history/) until it's actually reconstructed
+and verified.
 
-This will change over time for sure to reconstruct the different stages. As said in the beginning, it just takes more time.
 The dates and details come from the surviving artifacts wherever possible. Where the evidence is incomplete, I would rather leave a question mark than invent an answer.
 
 That is also the philosophy of the reverse engineering in this repository: **separate what we know from what we think we know.**
@@ -141,12 +144,16 @@ docs/reference/
 docs/artefacts/
     Investigation material: traces, disassemblies, notes, experiments,
     and other evidence accumulated during the reconstruction.
+
+history/
+    Raw historical material -- other people's disassemblies and work
+    disks, kept as found rather than cleaned up. Not this project's own
+    reconstruction; see history/README.md for what's here and why.
 ```
 
 If you want to reproduce the reconstruction without the original hardware, the simplest route is to start with `HDV/blank-612x2x17.hdv`, attach it to `sdltrs-MultiHDC`, and boot with F2 held down. The patch disk and its contents are in `DMK/` and `patchdisk/`.
 
 If you have a physical Genie IIIs, the same patch disk can be transferred to a real floppy and used to boot the modified system with F2 held down.
-
 
 ## Related repositories
 

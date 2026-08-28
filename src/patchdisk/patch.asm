@@ -29,7 +29,7 @@
 ; Addresses outside this file. Both names are Grosser's -- DSPLY from his
 ; chapter 3, DOSRDY cited by name -- and both are in
 ; docs/reference/gdos-2.4-addresses.md. The /CMD conventions are Volker
-; Dose's own commands in docs/artefacts/volker/: JP DOSRDY to leave, an 0Dh-terminated
+; Dose's own commands in history/00-volker-dose-workdisk/: JP DOSRDY to leave, an 0Dh-terminated
 ; string to print.
 DSPLY	EQU	4467h		;display the 0Dh-terminated text at (HL)
 DOSRDY	EQU	402dh		;return to the DOS prompt

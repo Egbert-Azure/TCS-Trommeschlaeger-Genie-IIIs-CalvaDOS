@@ -50,7 +50,7 @@ dsave	EQU	4306h
 ddrvnr	EQU	4784h
 ; 42A0h in the configuration sector is the floppy-drive count. SYS0/SYS's
 ; cold start at 4D63h is the only thing that reads it, and it is also the
-; only writer of 439Fh (dndrv, "Anzahl Drives" -- docs/artefacts/volker/SYS29.asm) and
+; only writer of 439Fh (dndrv, "Anzahl Drives" -- history/00-volker-dose-workdisk/SYS29.asm) and
 ; of 477Ah (DRVSEL's own CP operand). All three are left to SYS0, whose
 ; 4D63h block run-hdboottest.sh patches; this driver computes none of them,
 ; so there is one source of truth for the drive count. Kept as a label
