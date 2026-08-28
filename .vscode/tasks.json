@@ -11,11 +11,12 @@
     "tasks": [
         {
             "label": "Z80: Assemble with Pasmo",
-            "detail": "Assemble the current .asm with pasmo -> .cmd + .sym (symbol table) next to the source.",
+            "detail": "Assemble the current .asm with pasmo -> .cmd + .sym (symbol table) next to the source. --trs is required for a real block-structured /CMD file -- without it pasmo emits a plain binary just named .cmd.",
             "type": "shell",
             "command": "pasmo",
             "args": [
                 "-d",
+                "--trs",
                 "${file}",
                 "${fileDirname}/${fileBasenameNoExtension}.cmd",
                 "${fileDirname}/${fileBasenameNoExtension}.sym"
