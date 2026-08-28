@@ -127,10 +127,20 @@ The scripted test covers the boot, not the prompt; these are checked by running
 
 ## Still open
 
-**`BOOT` — not a regression.** The `BOOT` command halts. So does a stock
-GDOS 2.4 floppy boot, with none of this port's code involved — measured, not
-assumed. `BOOT` is four instructions ending in `JP 0000h`, and re-entering the
-ROM needs a full hardware re-init that SYS9 does not do. See
+**`BOOT` — and it is ours.** On the machine: boot with F2 held and G-DOS 2.4
+runs from floppy, where `BOOT` **works** — it restarts and CalvaDOS comes up
+from the hard disk. From inside CalvaDOS, `BOOT` **hangs**. F2 afterwards
+brings G-DOS 2.4 back, so the machine is fine.
+
+This page previously said `BOOT` was not a regression. That was wrong. The
+control behind it planted `BOOT`'s four instructions at a spare address and
+set PC to them — an invocation that hangs on *both* systems, so it could not
+tell a working `BOOT` from a broken one.
+
+Ruled out since, both systems at the idle loop in the same bank state: the
+bytes at `0000h` (identical, a real ROM image whose first byte is a genuine
+`HALT`), System Byte 1 (`C5` on both) and the memory map (`1B` on both). The
+mechanism is not yet identified. See
 [`known-issues.md`](../development/known-issues.md).
 
 ---
