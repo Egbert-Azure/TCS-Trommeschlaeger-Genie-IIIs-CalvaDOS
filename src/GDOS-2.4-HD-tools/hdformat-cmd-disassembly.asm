@@ -44,14 +44,15 @@ DRVSEL  EQU	4776h		;select a drive
 7018  df          rst 18h		;compare
 7019  c2 30 40    jp nz,ERRORO		;no match -> abort
 
-; 3rd typed char selects the unit: not '2' = unit 1 below, '2' = unit 2
-; at l704bh. DRVSEL is a SASI unit select, not a GDOS drive number.
+; 3rd typed char: '2' skips straight to pass 2 (l704bh) alone. Anything
+; else runs pass 1 below, which falls through into pass 2 on success --
+; the default run does both passes, one per partition.
 
 701c  3a 02 42    ld a,(m4202)
 701f  fe 32       cp 032h			;'2'
 7021  ca 4b 70    jp z,l704bh
 
-; Unit 1: DRVSEL A=9, fill E5h.
+; Pass 1 ("Durchgang 1"): DRVSEL A=9, fill E5h.
 
 7024  3e 09       ld a,009h
 7026  cd 76 47    call DRVSEL
@@ -69,7 +70,8 @@ DRVSEL  EQU	4776h		;select a drive
 7045  cd 75 70    call sub_7075h
 7048  c2 09 44    jp nz,DOSERR
 
-; Unit 2: DRVSEL A=5, fill 6Ch.
+; Pass 2 ("Durchgang 2"), falls through from pass 1 above: DRVSEL A=5,
+; fill 6Ch.
 
 l704bh:
 704b  3e 05       ld a,005h
