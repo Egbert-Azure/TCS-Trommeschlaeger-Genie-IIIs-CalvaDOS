@@ -140,10 +140,8 @@ tell a working `BOOT` from a broken one.
 Ruled out since, both systems at the idle loop in the same bank state: the
 bytes at `0000h` (identical, a real ROM image whose first byte is a genuine
 `HALT`), System Byte 1 (`C5` on both) and the memory map (`1B` on both). The
-mechanism is not yet identified. See
-[`known-issues.md`](../development/known-issues.md).
+mechanism is not yet identified.
 
 ---
 
-Sources: `run-hdboottest.sh` · `bootsec.asm` · `bootrd.asm` · `gdos-omti.asm` ·
-[`known-issues.md`](../development/known-issues.md)
+Sources: `run-hdboottest.sh` · `bootsec.asm` · `bootrd.asm` · `gdos-omti.asm`
