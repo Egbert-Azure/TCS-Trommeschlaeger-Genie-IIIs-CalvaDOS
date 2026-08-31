@@ -9,8 +9,10 @@ tools/trsextract
 build/
 
 # Ad hoc pasmo assemble output (Z80: Assemble with Pasmo task).
-# src/hd-driver/omti/hdtest.sym and hdwtest.sym, and src/patchdisk/PATCH.CMD,
-# are deliberately tracked and stay tracked regardless of this pattern.
+# src/hd-driver/omti/hdtest.sym and hdwtest.sym, src/patchdisk/PATCH.CMD,
+# and src/GDOS-2.4-HD-tools/HDFORMAT.CMD and GENDIR.CMD (stock GDOS 2.4
+# binaries, extracted not assembled) are deliberately tracked and stay
+# tracked regardless of this pattern.
 *.cmd
 *.sym
 
