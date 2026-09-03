@@ -125,7 +125,7 @@ HDV/
     the starting point for a new installation. Dated images are
     working reconstruction states.
 
-patchdisk/
+patchdisk/  (not yet published)
     The files used to create and populate the CalvaDOS patch disk.
     The patch disk can be used in two ways:
       - on a physical Genie IIIs, booting with F2 held down
@@ -164,6 +164,11 @@ If you have a physical Genie IIIs, the same patch disk can be transferred to a r
 
 ## Credits
 
+### Reconstruction
+
+* Egbert H. Schroeer — OMTI G-DOS reconstruction, boot sector, tooling,
+  and documentation
+
 ### The original Genie IIIs community
 
 * Arnulf Sopp (The Hacktory) — CalvaDOS and the 1986 OMTI boot EPROM
@@ -183,8 +188,8 @@ Without that disk, there would be very little to work with.
 
 ## License
 
-New code is released under **GPLv3**.
-
-Documentation is released under **CC BY-SA 4.0**.
-
-Original ROMs, binaries and other historical material remain the property of their respective copyright holders and are included only for preservation and research where permitted.
+See [LICENSE](LICENSE). New code is BSD 2-Clause; documentation is
+CC BY-SA 4.0. G-DOS 2.4 and everything derived from it belongs to TCS
+and the original authors and is preserved here for research only — it is
+not mine to license. Period sources by Arnulf Sopp, Volker Dose and
+Andreas Magnus keep their authors' names.
